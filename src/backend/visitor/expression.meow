@@ -133,10 +133,6 @@ export fn visitUnaryExpression(cg, node) {
 }
 
 export fn visitCallExpression(cg, node) {
-    // print("[SELFHOSTED CALLEXPRESSION], cg: ", cg);
-    // print("[SELFHOSTED CALLEXPRESSION], cg.currentState: ", cg.currentState);
-    // print("[SELFHOSTED CALLEXPRESSION], cg.currentState.allocator: ", cg.currentState.allocator);
-    // print("[SELFHOSTED CALLEXPRESSION], cg.currentState.allocator.ralloc: ", cg.currentState.allocator.ralloc);
 
     let destReg = cg.currentState.allocator.ralloc();
 

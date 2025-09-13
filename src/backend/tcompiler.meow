@@ -52,6 +52,7 @@ export class Compiler {
 
         let source = Io.read(absolutePath);
         let lexer = Lexer(source);
+        lexer.filename = absolutePath;
         let tokens = lexer.tokenize();
         let parser = Parser(tokens);
         let ast = parser.parseProgram();
@@ -72,7 +73,7 @@ export class Compiler {
 }
 
 let compiler = Compiler(false);
-let path = compiler.compileProject("/home/lazycat/Projects/MeowScript/meow-compiler/tests/test_closure.meow");
+let path = compiler.compileProject("/home/lazycat/Projects/MeowScript/meowscript/tests/test_closure.meow");
 print("\nĐường dẫn file cache đầu ra:");
 print(path);
 

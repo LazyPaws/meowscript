@@ -19,13 +19,14 @@ export class BytecodeStringifier {
     }
 
     fn stringify(protos) {
+        // print(protos);
         this._allProtos = {};
         let initialKeys = protos.keys();
         for (let i = 0; i < initialKeys.length; ++i) {
             let k = initialKeys[i];
             this._allProtos[k] = protos[k];
         }
-
+        
         let changed = true;
         while (changed) {
             changed = false;
@@ -120,7 +121,6 @@ export class BytecodeStringifier {
                 return c.sourceName;
             }
         }
-        print("str():", str);
         return str(c);
     }
 

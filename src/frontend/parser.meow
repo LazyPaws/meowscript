@@ -6,6 +6,7 @@ import * as System from "system";
 export class Parser {
     fn init(tokens) {
         this.tokens = tokens;
+        print(this.tokens);
         this.current = 0;
         this.rules = {};
         this.initRules();
@@ -368,6 +369,9 @@ export class Parser {
                     args.push(SpreadExpression(this.expression()));
                 } else {
                     args.push(this.expression());
+                        print("--- DEBUG PARSER ---");
+                        print("Vừa parse xong một argument, token tiếp theo là:");
+                        print(this.peek());
                 }
             } while (this.match([TokenType.PUNCT_COMMA]));
         }

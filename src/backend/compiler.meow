@@ -1,9 +1,11 @@
 import * as CodeGenerator from "./codeGenerator.meow";
 import * as Io from "io";
 import * as Json from "json";
-import * as Meta from "meta";
+// import * as Meta from "meta";
 import { makeCacheFile } from "./utils/makeCacheFile.meow";
 import { BytecodeStringifier } from "./bytecodeStringifier.meow";
+import { Lexer } from "../frontend/lexer.meow";
+import { Parser } from "../frontend/parser.meow";
 
 fn _getDirectoryPath(fullPath) {
     let filename = Io.getFileName(fullPath);
@@ -147,8 +149,10 @@ export class Compiler {
             System.exit(1);
         }
 
-
-        let ast = Meta.compile(source);
+        let lexer = new Lexer(source);
+        let tokens = lexer.tokenize();
+        let parser = new Parser(tokens);
+        let ast = parser.parseProgram();
         if (!ast) {
             print("[ERROR] Meta.compile trả về null/undefined cho: " + absolutePath);
             System.exit(1);

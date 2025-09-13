@@ -133,6 +133,9 @@ export let visitFunctionLiteral = fn(cg, node) {
         cg.currentState.allocator.ralloc();
     }
 
+    let wasInsideClass = cg.isInsideClass;
+    cg.isInsideClass = false;
+
     for (param in node.parameters) {
         let reg = cg.currentState.allocator.ralloc();
         let localIdx = cg.currentState.localCount;
@@ -145,6 +148,8 @@ export let visitFunctionLiteral = fn(cg, node) {
     cg.visitStatement(node.body);
 
     let childProto = cg.exitState();
+
+    cg.isInsideClass = wasInsideClass;
 
     assert(childProto.sourceName && childProto.sourceName.length > 3, "Bad childProto.sourceName after visitFunctionLiteral");
 

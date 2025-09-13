@@ -1,0 +1,13 @@
+class Class {
+    fn init() {
+        this.func(1000);
+    }
+    fn func(y) {
+        print(y);
+        fn(x) {
+            print("Number is", x);
+        }(100);
+    }
+}
+
+let klass = new Class();

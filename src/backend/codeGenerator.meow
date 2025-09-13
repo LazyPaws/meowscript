@@ -34,11 +34,11 @@ export class CodeGenerator {
     }
 
     fn compile() {
+        let mainStr = "@main";
         this.enterState("@main");
         this.currentState.proto.sourceName = this.sourceName;
         
         for (let i = 0; i < this.ast.body.length; ++i) {
-
             this.visitStatement(this.ast.body[i]);
         }
         
@@ -73,7 +73,6 @@ export class CodeGenerator {
         if (lastIdx < 0 || proto.code[lastIdx].op != OpCodes.RETURN) {
 
             finishedState.allocator.withTemp(fn(r) {
-                print("LOAD_NULL:", r);
                 Emitter.emit(proto, OpCodes.LOAD_NULL, [r]);
                 Emitter.emit(proto, OpCodes.RETURN, [r]);
             });
@@ -95,7 +94,7 @@ export class CodeGenerator {
         }
         return proto;
     }
-
+    
     fn visitStatement(node) {
         if (node == null) return;
         let handler = Visitor.statements[node.type];

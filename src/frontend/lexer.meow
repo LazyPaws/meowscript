@@ -125,7 +125,7 @@ export class Lexer {
         this.line = 1;
         this.col = 1;
         this.currChar = this.src.size() == 0 ? '\0' : this.src[0];
-        this.filename = "<unknown>";
+        // this.filename = "<unknown>";
         this.isInTemplateMode = false;
         this.isInExpression = false;
     }
