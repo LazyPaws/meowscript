@@ -1,0 +1,2 @@
+*.meow linguist-language=MeowScript
+build/* linguist-vendored
