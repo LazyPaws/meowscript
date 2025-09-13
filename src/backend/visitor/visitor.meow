@@ -1,0 +1,50 @@
+import * as Expression from "./expression.meow";
+import * as Statement from "./statement.meow";
+import * as Literal from "./literal.meow";
+
+export let Visitor = {
+    statements: {
+        "LetStatement": Statement.visitLetStatement,
+        "ClassStatement": Statement.visitClassStatement,
+        "ReturnStatement": Statement.visitReturnStatement,
+        "IfStatement": Statement.visitIfStatement,
+        "WhileStatement": Statement.visitWhileStatement,
+        "BreakStatement": Statement.visitBreakStatement,
+        "ContinueStatement": Statement.visitContinueStatement,
+        "BlockStatement": Statement.visitBlockStatement, 
+        "ForStatement": Statement.visitForStatement,
+        "ForInStatement": Statement.visitForInStatement,
+        "ThrowStatement": Statement.visitThrowStatement,
+        "TryStatement": Statement.visitTryStatement,
+        "ExpressionStatement": Statement.visitExpressionStatement,
+        "ExportStatement": Statement.visitExportStatement,
+        "ImportStatement": Statement.visitImportStatement,
+        "DoWhileStatement": Statement.visitDoWhileStatement,
+        "SwitchStatement": Statement.visitSwitchStatement,
+    },
+    expressions: {
+        "IntegerLiteral": Literal.visitIntegerLiteral,
+        "StringLiteral": Literal.visitStringLiteral,
+        "RealLiteral": Literal.visitRealLiteral,
+        "BooleanLiteral": Literal.visitBooleanLiteral,
+        "NullLiteral": Literal.visitNullLiteral, 
+        "ArrayLiteral": Literal.visitArrayLiteral,
+        "ObjectLiteral": Literal.visitObjectLiteral,
+        "FunctionLiteral": Literal.visitFunctionLiteral,
+        "TemplateLiteral": Literal.visitTemplateLiteral,
+
+        "Identifier": Expression.visitIdentifier,
+        "BinaryExpression": Expression.visitBinaryExpression,
+        "UnaryExpression": Expression.visitUnaryExpression,
+        "CallExpression": Expression.visitCallExpression,
+        "AssignmentExpression": Expression.visitAssignmentExpression,
+        "PrefixUpdateExpression": Expression.visitPrefixUpdateExpression,
+        "PostfixUpdateExpression": Expression.visitPostfixUpdateExpression,
+        "IndexExpression": Expression.visitIndexExpression,
+        "PropertyAccess": Expression.visitPropertyAccess,
+        "NewExpression": Expression.visitNewExpression,
+        "ThisExpression": Expression.visitThisExpression,
+        "SuperExpression": Expression.visitSuperExpression,
+        "TernaryExpression": Expression.visitTernaryExpression,
+    }
+};

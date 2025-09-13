@@ -1,0 +1,131 @@
+
+import { OpCodes } from "./opCodes.meow";
+
+let __PROTO_ID_COUNTER = 0;
+
+let __LABEL_COUNTER = 0;
+let __ANONYMOUS_FN_COUNTER = 0;
+
+export fn createLabel(prefix) {
+    __LABEL_COUNTER += 1;
+
+    let label = prefix + "_" + __LABEL_COUNTER;
+
+    return label;
+}
+
+export fn createAnonymousFunctionName() {
+    __ANONYMOUS_FN_COUNTER += 1;
+    return "__fn_" + str(__ANONYMOUS_FN_COUNTER);
+}
+
+export fn createProto(name, numRegisters) {
+    let id = __PROTO_ID_COUNTER;
+    __PROTO_ID_COUNTER = __PROTO_ID_COUNTER + 1;
+    
+    return {
+        "id": id,
+        "numRegisters": numRegisters, "sourceName": name, "code": [],
+        "constantPool": [], "upvalueDescs": [], "labels": {}, "pendingJumps": [],
+        "numUpvalues": 0
+    };
+}
+
+export fn emit(proto, opcode, args) {
+    let inst = {"op": opcode, "args": [] };
+    let ip = proto.code.length;
+    for (a in args) {
+        if (typeof(a) == "object" && a != null && (a["label"] != null)) {
+            inst.args.push(-1);
+            proto.pendingJumps.push({"ip": ip, "argIndex": inst.args.length - 1, "label": a.label});
+        } else {
+            inst.args.push(a);
+        }
+    }
+    proto.code.push(inst);
+}
+
+export fn defineLabel(proto, label) {
+    proto.labels[label] = proto.code.length;
+}
+
+export fn patchPendingJumps(proto) {
+    for (p in proto.pendingJumps) {
+        assert(proto.labels[p.label] != null, "Lỗi: Không tìm thấy label '" + p.label + "'!");
+        let targetIp = proto.labels[p.label];
+        proto.code[p.ip].args[p.argIndex] = targetIp;
+    }
+    proto.pendingJumps = [];
+}
+
+let __REG_ARGS = {
+    [OpCodes.MOVE]: [0, 1],
+    [OpCodes.LOAD_CONST]: [0],
+    [OpCodes.LOAD_NULL]: [0],
+    [OpCodes.LOAD_TRUE]: [0],
+    [OpCodes.LOAD_FALSE]: [0],
+    [OpCodes.LOAD_INT]: [0],
+    [OpCodes.NOT]: [0, 1],
+    [OpCodes.NEG]: [0, 1],
+    [OpCodes.ADD]: [0, 1, 2],
+    [OpCodes.SUB]: [0, 1, 2],
+    [OpCodes.MUL]: [0, 1, 2],
+    [OpCodes.DIV]: [0, 1, 2],
+    [OpCodes.EQ]: [0, 1, 2],
+    [OpCodes.NEQ]: [0, 1, 2],
+    [OpCodes.LT]: [0, 1, 2],
+    [OpCodes.LE]: [0, 1, 2],
+    [OpCodes.GT]: [0, 1, 2],
+    [OpCodes.GE]: [0, 1, 2],
+    [OpCodes.BIT_AND]: [0, 1, 2],
+    [OpCodes.BIT_OR]: [0, 1, 2],
+    [OpCodes.BIT_XOR]: [0, 1, 2],
+    [OpCodes.LSHIFT]: [0, 1, 2],
+    [OpCodes.RSHIFT]: [0, 1, 2],
+    [OpCodes.JUMP_IF_FALSE]: [0],
+    [OpCodes.JUMP_IF_TRUE]: [0],
+    [OpCodes.JUMP]: [],
+    [OpCodes.GET_PROP]: [0, 1],
+    [OpCodes.SET_PROP]: [0, 2],
+    [OpCodes.GET_INDEX]: [0, 1, 2],
+    [OpCodes.SET_INDEX]: [0, 1, 2],
+    [OpCodes.NEW_ARRAY]: [0, 1],
+    [OpCodes.NEW_HASH]: [0, 1],
+    [OpCodes.CALL]: [0, 1, 2],
+    [OpCodes.RETURN]: [0],
+    [OpCodes.GET_UPVALUE]: [0],
+    [OpCodes.SET_UPVALUE]: [1],
+    [OpCodes.CLOSE_UPVALUES]: [],
+    [OpCodes.CLOSURE]: [0],
+    [OpCodes.IMPORT_MODULE]: [0],
+    [OpCodes.GET_EXPORT]: [0, 1],
+    // [OpCodes.GET_MODULE_EXPORT]: [0, 1],
+    [OpCodes.GET_GLOBAL]: [0],
+    [OpCodes.SET_GLOBAL]: [1],
+    [OpCodes.EXPORT]: [1],
+    [OpCodes.NEW_CLASS]: [0],
+    // [OpCodes.NEW_INSTANCE]: [0, 1],
+    [OpCodes.SET_METHOD]: [0, 2],
+    [OpCodes.INHERIT]: [0, 1],
+    [OpCodes.GET_SUPER]: [0],
+    [OpCodes.THROW]: [0],
+    [OpCodes.SETUP_TRY]: [],
+    [OpCodes.POP_TRY]: []
+};
+
+export fn computeMaxRegister(proto) {
+    let maxR = -1;
+    for (inst in proto.code) {
+        let regIdxs = __REG_ARGS[inst.op];
+        if (regIdxs != null) {
+            for (idx in regIdxs) {
+                if (idx < inst.args.length) {
+                    let v = inst.args[idx];
+                    if (typeof(v) == "int" && v > maxR) maxR = v;
+                }
+            }
+        }
+    }
+    return maxR;
+}
+

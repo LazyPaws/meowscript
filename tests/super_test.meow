@@ -1,0 +1,22 @@
+class MyClass {
+    fn init() {
+        print("Init được gọi");
+        this.name = "MyClass";
+    }
+
+    fn nope() {
+        print(this.name);
+    }
+
+    fn extract() {
+        return this.nope;
+    }
+}
+
+let klass = new MyClass;
+let m = klass.extract();
+
+print(typeof(m));
+
+m();
+klass.nope();

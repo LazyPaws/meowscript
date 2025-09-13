@@ -1,0 +1,37 @@
+import { contains, join } from "string";
+
+let DIGITS = "0123456789";
+let HEX_DIGITS = "0123456789abcdefABCDEF";
+let LETTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+let WHITESPACE = " \t\r\n";
+
+export fn isalpha(char) {
+    return contains(LETTERS, char); 
+}
+
+export fn isdigit(char) {
+    return contains(DIGITS, char); 
+}
+
+export fn isxdigit(char) {
+  return contains(HEX_DIGITS, char);
+}
+
+export fn isalnum(char) {
+    return isalpha(char) || isdigit(char);
+}
+
+export fn isspace(char) {
+    return contains(WHITESPACE, char);
+}
+
+export fn prettyPrint(token) {
+    let parts = [
+        "{ 'type': '",
+        token.TokenType,
+        "', 'value': '",
+        token.Lexeme,
+        "' }"
+    ];
+    return join(parts, "");
+}

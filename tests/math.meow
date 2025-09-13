@@ -1,0 +1,9 @@
+export fn compute() {
+    return 42;
+}
+
+export class Base {
+    fn init(x) {
+        this.named = x;
+    }
+}

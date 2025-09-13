@@ -1,0 +1,297 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+export let TokenType = {
+    KEYWORD_LET: 0,
+    KEYWORD_CONST: 1,
+    KEYWORD_WHILE: 2,
+    KEYWORD_FOR: 3,
+    KEYWORD_IF: 4,
+    KEYWORD_ELSE: 5,
+    KEYWORD_RETURN: 6,
+    KEYWORD_BREAK: 7,
+    KEYWORD_CONTINUE: 8,
+    KEYWORD_FUNCTION: 9,
+    KEYWORD_NULL: 10,
+    KEYWORD_CLASS: 11,
+    KEYWORD_THIS: 12,
+    KEYWORD_SUPER: 13,
+    KEYWORD_NEW: 14,
+    KEYWORD_STATIC: 15,
+    KEYWORD_THROW: 16,
+    KEYWORD_TRY: 17,
+    KEYWORD_CATCH: 18,
+    KEYWORD_IMPORT: 19,
+    KEYWORD_EXPORT: 20,
+    KEYWORD_AS: 21,
+    KEYWORD_FROM: 22,
+    KEYWORD_SWITCH: 23,
+    KEYWORD_CASE: 24,
+    KEYWORD_DEFAULT: 25,
+    KEYWORD_DO: 26,
+    KEYWORD_IN: 27,
+    KEYWORD_LOG: 28,
+    IDENTIFIER: 29,
+    INTEGER: 30,
+    REAL: 31,
+    BOOLEAN: 32,
+    STRING: 33,
+    CHAR: 34,
+    OP_PLUS: 35,
+    OP_MINUS: 36,
+    OP_MULTIPLY: 37,
+    OP_DIVIDE: 38,
+    OP_MODULO: 39,
+    OP_EXPONENT_ASSIGN: 40,
+    OP_BIT_AND: 41,
+    OP_BIT_OR: 42,
+    OP_BIT_XOR: 43,
+    OP_BIT_NOT: 44,
+    OP_LSHIFT: 45,
+    OP_RSHIFT: 46,
+    OP_EQ: 47,
+    OP_NEQ: 48,
+    OP_LT: 49,
+    OP_GT: 50,
+    OP_LE: 51,
+    OP_GE: 52,
+    OP_LOGICAL_AND: 53,
+    OP_LOGICAL_OR: 54,
+    OP_LOGICAL_NOT: 55,
+    OP_ASSIGN: 56,
+    OP_PLUS_ASSIGN: 57,
+    OP_MINUS_ASSIGN: 58,
+    OP_MULTIPLY_ASSIGN: 59,
+    OP_DIVIDE_ASSIGN: 60,
+    OP_MODULO_ASSIGN: 61,
+    OP_AND_ASSIGN: 62,
+    OP_OR_ASSIGN: 63,
+    OP_XOR_ASSIGN: 64,
+    OP_NOT_ASSIGN: 65,
+    OP_LSHIFT_ASSIGN: 66,
+    OP_RSHIFT_ASSIGN: 67,
+    OP_INCREMENT: 68,
+    OP_DECREMENT: 69,
+    OP_ELLIPSIS: 70,
+    OP_NULLISH: 71,
+    OP_EXPONENT: 72,
+    PUNCT_SEMICOLON: 73,
+    PUNCT_COLON: 74,
+    PUNCT_COMMA: 75,
+    PUNCT_LPAREN: 76,
+    PUNCT_RPAREN: 77,
+    PUNCT_LBRACE: 78,
+    PUNCT_RBRACE: 79,
+    PUNCT_LBRACKET: 80,
+    PUNCT_RBRACKET: 81,
+    PUNCT_DOT: 82,
+    PUNCT_QUESTION: 83,
+    PUNCT_BACKTICK: 84,
+    PUNCT_PERCENT_LBRACE: 85,
+    UNKNOWN: 86,
+    END_OF_FILE: 87,
+    _TOTAL_TOKENS: 88,
+};
+
+export fn tokenTypeToString(tokenType) {
+    let typeMap = [
+        "KEYWORD_LET", "KEYWORD_CONST", "KEYWORD_WHILE", "KEYWORD_FOR",
+        "KEYWORD_IF", "KEYWORD_ELSE", "KEYWORD_RETURN", "KEYWORD_BREAK",
+        "KEYWORD_CONTINUE", "KEYWORD_FUNCTION", "KEYWORD_NULL", "KEYWORD_CLASS",
+        "KEYWORD_THIS", "KEYWORD_SUPER", "KEYWORD_NEW", "KEYWORD_STATIC",
+        "KEYWORD_THROW", "KEYWORD_TRY", "KEYWORD_CATCH", "KEYWORD_IMPORT",
+        "KEYWORD_EXPORT", "KEYWORD_AS", "KEYWORD_FROM", "KEYWORD_SWITCH",
+        "KEYWORD_CASE", "KEYWORD_DEFAULT", "KEYWORD_DO", "KEYWORD_IN",
+        "KEYWORD_LOG", "IDENTIFIER", "INTEGER", "REAL",
+        "BOOLEAN", "STRING", "CHAR", "OP_PLUS",
+        "OP_MINUS", "OP_MULTIPLY", "OP_DIVIDE", "OP_MODULO",
+        "OP_EXPONENT_ASSIGN", "OP_BIT_AND", "OP_BIT_OR", "OP_BIT_XOR",
+        "OP_BIT_NOT", "OP_LSHIFT", "OP_RSHIFT", "OP_EQ",
+        "OP_NEQ", "OP_LT", "OP_GT", "OP_LE",
+        "OP_GE", "OP_LOGICAL_AND", "OP_LOGICAL_OR", "OP_LOGICAL_NOT",
+        "OP_ASSIGN", "OP_PLUS_ASSIGN", "OP_MINUS_ASSIGN", "OP_MULTIPLY_ASSIGN",
+        "OP_DIVIDE_ASSIGN", "OP_MODULO_ASSIGN", "OP_AND_ASSIGN", "OP_OR_ASSIGN",
+        "OP_XOR_ASSIGN", "OP_NOT_ASSIGN", "OP_LSHIFT_ASSIGN", "OP_RSHIFT_ASSIGN",
+        "OP_INCREMENT", "OP_DECREMENT", "OP_ELLIPSIS", "OP_NULLISH",
+        "OP_EXPONENT", "PUNCT_SEMICOLON", "PUNCT_COLON", "PUNCT_COMMA",
+        "PUNCT_LPAREN", "PUNCT_RPAREN", "PUNCT_LBRACE", "PUNCT_RBRACE",
+        "PUNCT_LBRACKET", "PUNCT_RBRACKET", "PUNCT_DOT", "PUNCT_QUESTION",
+        "PUNCT_BACKTICK", "PUNCT_PERCENT_LBRACE", "UNKNOWN", "END_OF_FILE",
+        "_TOTAL_TOKENS"
+    ];
+    
+    if (tokenType >= 0 && tokenType < typeMap.size()) {
+        return typeMap[tokenType];
+    }
+    
+    return "UNKNOWN_TOKEN_TYPE";
+}
+
+export fn stringToTokenType(tokenString) {
+    const stringMap = {
+        "KEYWORD_LET": TokenType.KEYWORD_LET,
+        "KEYWORD_CONST": TokenType.KEYWORD_CONST,
+        "KEYWORD_WHILE": TokenType.KEYWORD_WHILE,
+        "KEYWORD_FOR": TokenType.KEYWORD_FOR,
+        "KEYWORD_IF": TokenType.KEYWORD_IF,
+        "KEYWORD_ELSE": TokenType.KEYWORD_ELSE,
+        "KEYWORD_RETURN": TokenType.KEYWORD_RETURN,
+        "KEYWORD_BREAK": TokenType.KEYWORD_BREAK,
+        "KEYWORD_CONTINUE": TokenType.KEYWORD_CONTINUE,
+        "KEYWORD_FUNCTION": TokenType.KEYWORD_FUNCTION,
+        "KEYWORD_NULL": TokenType.KEYWORD_NULL,
+        "KEYWORD_CLASS": TokenType.KEYWORD_CLASS,
+        "KEYWORD_THIS": TokenType.KEYWORD_THIS,
+        "KEYWORD_SUPER": TokenType.KEYWORD_SUPER,
+        "KEYWORD_NEW": TokenType.KEYWORD_NEW,
+        "KEYWORD_STATIC": TokenType.KEYWORD_STATIC,
+        "KEYWORD_THROW": TokenType.KEYWORD_THROW,
+        "KEYWORD_TRY": TokenType.KEYWORD_TRY,
+        "KEYWORD_CATCH": TokenType.KEYWORD_CATCH,
+        "KEYWORD_IMPORT": TokenType.KEYWORD_IMPORT,
+        "KEYWORD_EXPORT": TokenType.KEYWORD_EXPORT,
+        "KEYWORD_AS": TokenType.KEYWORD_AS,
+        "KEYWORD_FROM": TokenType.KEYWORD_FROM,
+        "KEYWORD_SWITCH": TokenType.KEYWORD_SWITCH,
+        "KEYWORD_CASE": TokenType.KEYWORD_CASE,
+        "KEYWORD_DEFAULT": TokenType.KEYWORD_DEFAULT,
+        "KEYWORD_DO": TokenType.KEYWORD_DO,
+        "KEYWORD_IN": TokenType.KEYWORD_IN,
+        "KEYWORD_LOG": TokenType.KEYWORD_LOG,
+        "IDENTIFIER": TokenType.IDENTIFIER,
+        "INTEGER": TokenType.INTEGER,
+        "REAL": TokenType.REAL,
+        "BOOLEAN": TokenType.BOOLEAN,
+        "STRING": TokenType.STRING,
+        "CHAR": TokenType.CHAR,
+        "OP_PLUS": TokenType.OP_PLUS,
+        "OP_MINUS": TokenType.OP_MINUS,
+        "OP_MULTIPLY": TokenType.OP_MULTIPLY,
+        "OP_DIVIDE": TokenType.OP_DIVIDE,
+        "OP_MODULO": TokenType.OP_MODULO,
+        "OP_EXPONENT_ASSIGN": TokenType.OP_EXPONENT_ASSIGN,
+        "OP_BIT_AND": TokenType.OP_BIT_AND,
+        "OP_BIT_OR": TokenType.OP_BIT_OR,
+        "OP_BIT_XOR": TokenType.OP_BIT_XOR,
+        "OP_BIT_NOT": TokenType.OP_BIT_NOT,
+        "OP_LSHIFT": TokenType.OP_LSHIFT,
+        "OP_RSHIFT": TokenType.OP_RSHIFT,
+        "OP_EQ": TokenType.OP_EQ,
+        "OP_NEQ": TokenType.OP_NEQ,
+        "OP_LT": TokenType.OP_LT,
+        "OP_GT": TokenType.OP_GT,
+        "OP_LE": TokenType.OP_LE,
+        "OP_GE": TokenType.OP_GE,
+        "OP_LOGICAL_AND": TokenType.OP_LOGICAL_AND,
+        "OP_LOGICAL_OR": TokenType.OP_LOGICAL_OR,
+        "OP_LOGICAL_NOT": TokenType.OP_LOGICAL_NOT,
+        "OP_ASSIGN": TokenType.OP_ASSIGN,
+        "OP_PLUS_ASSIGN": TokenType.OP_PLUS_ASSIGN,
+        "OP_MINUS_ASSIGN": TokenType.OP_MINUS_ASSIGN,
+        "OP_MULTIPLY_ASSIGN": TokenType.OP_MULTIPLY_ASSIGN,
+        "OP_DIVIDE_ASSIGN": TokenType.OP_DIVIDE_ASSIGN,
+        "OP_MODULO_ASSIGN": TokenType.OP_MODULO_ASSIGN,
+        "OP_AND_ASSIGN": TokenType.OP_AND_ASSIGN,
+        "OP_OR_ASSIGN": TokenType.OP_OR_ASSIGN,
+        "OP_XOR_ASSIGN": TokenType.OP_XOR_ASSIGN,
+        "OP_NOT_ASSIGN": TokenType.OP_NOT_ASSIGN,
+        "OP_LSHIFT_ASSIGN": TokenType.OP_LSHIFT_ASSIGN,
+        "OP_RSHIFT_ASSIGN": TokenType.OP_RSHIFT_ASSIGN,
+        "OP_INCREMENT": TokenType.OP_INCREMENT,
+        "OP_DECREMENT": TokenType.OP_DECREMENT,
+        "OP_ELLIPSIS": TokenType.OP_ELLIPSIS,
+        "OP_NULLISH": TokenType.OP_NULLISH,
+        "OP_EXPONENT": TokenType.OP_EXPONENT,
+        "PUNCT_SEMICOLON": TokenType.PUNCT_SEMICOLON,
+        "PUNCT_COLON": TokenType.PUNCT_COLON,
+        "PUNCT_COMMA": TokenType.PUNCT_COMMA,
+        "PUNCT_LPAREN": TokenType.PUNCT_LPAREN,
+        "PUNCT_RPAREN": TokenType.PUNCT_RPAREN,
+        "PUNCT_LBRACE": TokenType.PUNCT_LBRACE,
+        "PUNCT_RBRACE": TokenType.PUNCT_RBRACE,
+        "PUNCT_LBRACKET": TokenType.PUNCT_LBRACKET,
+        "PUNCT_RBRACKET": TokenType.PUNCT_RBRACKET,
+        "PUNCT_DOT": TokenType.PUNCT_DOT,
+        "PUNCT_QUESTION": TokenType.PUNCT_QUESTION,
+        "PUNCT_BACKTICK": TokenType.PUNCT_BACKTICK,
+        "PUNCT_PERCENT_LBRACE": TokenType.PUNCT_PERCENT_LBRACE,
+        "UNKNOWN": TokenType.UNKNOWN,
+        "END_OF_FILE": TokenType.END_OF_FILE,
+        "_TOTAL_TOKENS": TokenType._TOTAL_TOKENS
+    };
+
+    if (stringMap[tokenString] != null) {
+        return stringMap[tokenString];
+    }
+
+    return TokenType.UNKNOWN;
+}
+
+export fn Token(type, lex, path, line, col) {
+    return {
+        type: type,
+        lexeme: lex,
+        file: path,
+        line: line,
+        col: col
+    };
+}

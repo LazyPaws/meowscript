@@ -1,0 +1,19 @@
+
+let x = 2;
+let y = 0;
+
+switch (x) {
+    case 1:
+        y = 10;
+        break;
+    case 2:
+        y = 20;
+        break;
+    case 3:
+        y = 30;
+        break;
+    default:
+        y = 99;
+}
+
+print(y);

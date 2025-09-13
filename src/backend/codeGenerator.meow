@@ -1,0 +1,211 @@
+
+import * as RegisterAllocator from "./registerAllocator.meow";
+import * as ConstantPool from "./constantPool.meow";
+import * as Emitter from "./emitter.meow";
+import { OpCodes } from "./opCodes.meow";
+import { Visitor } from "./visitor/visitor.meow";
+
+class CompilerState {
+    fn init(name) {
+        this.proto = Emitter.createProto(name, 256);
+        this.pool = ConstantPool.ConstantPool(this.proto.constantPool);
+        this.allocator = RegisterAllocator.RegisterAllocator(256);
+        this.scope = [{}];
+        this.loopLabels = [];
+        this.moduleVariables = {};
+        this.importedVariables = {};
+        this.capturedLocals = {};
+        this.regToLocalIndex = {};
+        this.localIndexToReg = {};
+        this.localCount = 0;
+    }
+}
+
+export class CodeGenerator {
+    fn init(ast, compiler, sourceName) {
+        this.ast = ast;
+        this.compiler = compiler;
+        this.sourceName = sourceName;
+        this.protos = {};
+        this.states = [];
+        this.currentState = null;
+        this.isInsideClass = false;
+
+    }
+
+    fn compile() {
+        this.enterState("@main");
+        this.currentState.proto.sourceName = this.sourceName;
+        
+        for (let i = 0; i < this.ast.body.length; ++i) {
+
+            this.visitStatement(this.ast.body[i]);
+        }
+        
+        let mainProto = this.exitState();
+        this.protos["@main"] = mainProto;
+
+        return this.protos;
+    }
+
+    fn enterState(name) {
+        let parentState = this.currentState;
+        let newState = new CompilerState(name);
+
+        if (parentState) {
+            for (key in parentState.moduleVariables.keys()) {
+                newState.moduleVariables[key] = parentState.moduleVariables[key];
+            }
+            for (key in parentState.importedVariables.keys()) {
+                newState.importedVariables[key] = parentState.importedVariables[key];
+            }
+        }
+
+        this.states.push(newState);
+        this.currentState = newState;
+    }
+
+    fn exitState() {
+        let finishedState = this.states.pop();
+        let proto = finishedState.proto;
+
+        let lastIdx = proto.code.length - 1;
+        if (lastIdx < 0 || proto.code[lastIdx].op != OpCodes.RETURN) {
+
+            finishedState.allocator.withTemp(fn(r) {
+                print("LOAD_NULL:", r);
+                Emitter.emit(proto, OpCodes.LOAD_NULL, [r]);
+                Emitter.emit(proto, OpCodes.RETURN, [r]);
+            });
+        }
+        
+        proto.numRegisters = finishedState.allocator.usedRegisters();
+        let recomputed = Emitter.computeMaxRegister(proto) + 1;
+        if (recomputed > proto.numRegisters) proto.numRegisters = recomputed;
+
+        if (!proto.upvalueDescs) proto.upvalueDescs = [];
+        proto.numUpvalues = proto.upvalueDescs.length;
+
+        Emitter.patchPendingJumps(proto);
+        
+        if (this.states.length > 0) {
+            this.currentState = this.states[this.states.length - 1];
+        } else {
+            this.currentState = null;
+        }
+        return proto;
+    }
+
+    fn visitStatement(node) {
+        if (node == null) return;
+        let handler = Visitor.statements[node.type];
+        assert(handler, `Lỗi: Không hỗ trợ kiểu statement '%{node.type}'`);
+        handler(this, node);
+    }
+
+    fn visitExpression(node) {
+        if (node == null) return -1;
+        let handler = Visitor.expressions[node.type];
+        assert(handler, `Lỗi: Không hỗ trợ kiểu expression '%{node.type}'`);
+        return handler(this, node);
+    }
+    
+    fn findVariable(name) {
+        let localResult = this._findLocalInCurrentState(name);
+        if (localResult != null) {
+            return localResult;
+        }
+
+        if (this.states.length > 1) {
+
+            let upvalueResult = this._findUpvalueRecursive(name, this.states.length - 2);
+            if (upvalueResult != null) {
+                return upvalueResult;
+            }
+        }
+
+        return { "type": "global", "name": name };
+    }
+
+    fn _findLocalInCurrentState(name) {
+
+        for (let i = this.currentState.scope.length - 1; i >= 0; --i) {
+            let scope = this.currentState.scope[i];
+            if (scope[name] != null) {
+
+                let localIndex = scope[name];
+
+                let reg = this.currentState.localIndexToReg[localIndex];
+
+                assert(reg != null, `Lỗi nghiêm trọng: Không tìm thấy register cho localIndex=${localIndex} của biến '${name}'`);
+
+
+                return {'type': 'local', 'index': reg, 'localIndex': localIndex};
+            }
+        }
+        return null;
+
+    }
+
+    fn _findUpvalueRecursive(name, parentStateIndex) {
+        if (parentStateIndex < 0) {
+            return null;
+        }
+
+        let parentState = this.states[parentStateIndex];
+        let childState = this.states[parentStateIndex + 1];
+
+
+        for (let i = parentState.scope.length - 1; i >= 0; --i) {
+            let scope = parentState.scope[i];
+            if (scope[name] != null) {
+
+                let localIndex = scope[name];
+                let registerToCapture = parentState.localIndexToReg[localIndex];
+                assert(registerToCapture != null, `Lỗi nghiêm trọng: Không tìm thấy thanh ghi cho local '${name}'`);
+
+                parentState.capturedLocals[localIndex] = true;
+
+
+                return this._addUpvalueToState({'isLocal': true, 'index': registerToCapture}, childState);
+            }
+        }
+
+        if (parentStateIndex > 0) {
+            let resultFromGrandparent = this._findUpvalueRecursive(name, parentStateIndex - 1);
+
+            if (resultFromGrandparent != null) {
+
+
+
+                return this._addUpvalueToState({'isLocal': false, 'index': resultFromGrandparent.index}, childState);
+            }
+        }
+
+        return null;
+    }
+
+    fn _addUpvalue(desc) {
+        return this._addUpvalueToState(desc, this.currentState);
+    }
+    
+    fn _addUpvalueToState(desc, state) {
+
+        let proto = state.proto;
+        if (!proto.upvalueDescs) proto.upvalueDescs = [];
+
+        assert(typeof(desc.isLocal) == 'bool' || typeof(desc.isLocal) == 'boolean', 'upvalue desc phải có isLocal boolean');
+        assert(typeof(desc.index) == 'int' || typeof(desc.index) == 'real' || typeof(desc.index) == 'number', 'upvalue desc.index phải là số (int)');
+
+        for (let i = 0; i < proto.upvalueDescs.length; ++i) {
+            let d = proto.upvalueDescs[i];
+            if (d.index == desc.index && d.isLocal == desc.isLocal) {
+                return {'type': 'upvalue', 'index': i};
+            }
+        }
+        let newIndex = proto.upvalueDescs.length;
+        proto.upvalueDescs.push(desc);
+        return {'type': 'upvalue', 'index': newIndex};
+
+    }
+}

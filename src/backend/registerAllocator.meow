@@ -1,0 +1,124 @@
+export class RegisterAllocator {
+    fn init(numRegisters) {
+        this._numRegisters = (numRegisters > 0) ? numRegisters : 42;
+        this.reset();
+    }
+
+    fn reset() {
+        this.freeRegisters = [];
+        for (let i = 0; i < this._numRegisters; ++i) {
+            this.freeRegisters.push(i);
+        }
+        this.freeRegisters.reverse();
+        this.inUse = {};
+        this.maxUsed = 0;
+
+        this.scopeStack = [];
+    }
+
+    fn _grow(minExtra) {
+        let extra = (minExtra != null && minExtra > 0) ? minExtra : this._numRegisters;
+        let start = this._numRegisters;
+        let end = this._numRegisters + extra;
+        this.freeRegisters.reserve(end + 1);
+        for (let r = start; r < end; ++r) {
+            this.freeRegisters.push(r);
+        }
+        this.freeRegisters.reverse();
+        this._numRegisters = end;
+    }
+
+    fn ralloc() {
+        if (this.freeRegisters.length == 0) {
+            this._grow(this._numRegisters);
+        }
+        let r = this.freeRegisters.pop();
+        this.inUse[str(r)] = true;
+        if (r + 1 > this.maxUsed) this.maxUsed = r + 1;
+        return r;
+    }
+
+    fn rallocBlock(n) {
+        assert(n > 0, "RegisterAllocator.rallocBlock: n phải > 0");
+        let startReg = -1;
+
+        for (let s = 0; s <= this._numRegisters - n; ++s) {
+            let isBlockFree = true;
+            for (let i = 0; i < n; ++i) {
+                if (this.inUse[str(s + i)]) {
+                    isBlockFree = false;
+                    s = s + i;
+                    break;
+                }
+            }
+            if (isBlockFree) {
+                startReg = s;
+                break; 
+            }
+        }
+
+        if (startReg == -1) {
+            startReg = this._numRegisters;
+            this._grow(n); 
+        }
+
+        let currentScope = (this.scopeStack.length > 0) ? this.scopeStack[this.scopeStack.length - 1] : null;
+
+        for (let i = 0; i < n; ++i) {
+            let reg = startReg + i;
+            this.inUse[str(reg)] = true;
+            if (reg + 1 > this.maxUsed) {
+                this.maxUsed = reg + 1;
+            }
+
+            if (currentScope != null) {
+                currentScope.push(reg);
+            }
+        }
+        
+        let newFreeList = [];
+        for (freeReg in this.freeRegisters) {
+            if (freeReg < startReg || freeReg >= startReg + n) {
+                newFreeList.push(freeReg);
+            }
+        }
+        this.freeRegisters = newFreeList;
+        
+        return startReg;
+    }
+
+    fn free(reg) {
+        if (reg == null) return;
+        let k = str(reg);
+        if (this.inUse[k]) {
+            this.inUse[k] = null;
+            this.freeRegisters.push(reg);
+        }
+    }
+
+    fn beginScope() { 
+        this.scopeStack.push([]); 
+    }
+    fn endScope() {
+        if (this.scopeStack.length == 0) return;
+        let top = this.scopeStack.pop();
+        for (let i = top.length - 1; i >= 0; --i) this.free(top[i]);
+    }
+    fn take() {
+        let r = this.ralloc();
+        if (this.scopeStack.length > 0) {
+            this.scopeStack[this.scopeStack.length - 1].push(r);
+        }
+        return r;
+    }
+
+    fn withTemp(fnUse) {
+        let r = this.ralloc();
+        let out = fnUse(r);
+        this.free(r);
+        return out;
+    }
+
+    fn usedRegisters() { return this.maxUsed; }
+    fn numRegisters() { return this._numRegisters; }
+}

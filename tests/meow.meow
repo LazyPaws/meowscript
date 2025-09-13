@@ -1,0 +1,16 @@
+import { Compiler } from "./backend/tcompiler.meow";
+import * as System from "system";
+import * as Io from "io";
+import * as String from "string";
+
+let entrypoint = "tests/test_closure.meow";
+
+print("--- Bắt đầu quy trình biên dịch AOT ---");
+let compiler = new Compiler(false);
+let entryCachePath = compiler.compileProject(entrypoint);
+print("✅ Quy trình biên dịch hoàn tất!");
+
+
+
+
+

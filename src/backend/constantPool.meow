@@ -1,0 +1,41 @@
+export class ConstantPool {
+    fn init(pool) {
+        this.pool = pool; 
+        this.lookup = {};
+    }
+
+    fn add(value) {
+        if (typeof(value) == "object" && value != null && (value["sourceName"] != null)) {
+             let key = "proto:" + value.sourceName;
+             if (this.lookup[key] != null) {
+                 return this.lookup[key];
+             }
+             let index = this.pool.length;
+             this.pool.push(value);
+             this.lookup[key] = index;
+             return index;
+        }
+
+        let valueStr = str(value);
+
+        let key = "meow:" + valueStr;
+        
+        if (this.lookup[key]) {
+            return this.lookup[key];
+        }
+
+        let index = this.pool.length;
+        this.pool.push(value);
+        this.lookup[key] = index;
+        
+        return index;
+    }
+
+    fn get(index) {
+        if (index >= 0 && index < this.pool.length) {
+            return this.pool[index];
+        }
+        assert(false, "Lỗi: Index hằng số nằm ngoài giới hạn!");
+        return null;
+    }
+}

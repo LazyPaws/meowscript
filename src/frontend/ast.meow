@@ -1,0 +1,333 @@
+export fn Program(body) {
+    return {
+        type: "Program",
+        body: body
+    };
+}
+
+export fn LetStatement(name, value, isConstant) {
+    return {
+        type: "LetStatement",
+        name: name,
+        value: value,
+        isConstant: isConstant
+    };
+}
+
+export fn FunctionLiteral(parameters, body, restParam) {
+    return {
+        type: "FunctionLiteral",
+        parameters: parameters,
+        body: body,
+        restParam: restParam
+    };
+}
+
+export fn ClassStatement(name, superclass, methods, static_fields) {
+    return {
+        type: "ClassStatement",
+        name: name,
+        superclass: superclass,
+        methods: methods,
+        static_fields: static_fields
+    };
+}
+
+export fn IfStatement(condition, thenBranch, elseBranch) {
+    return {
+        type: "IfStatement",
+        condition: condition,
+        thenBranch: thenBranch,
+        elseBranch: elseBranch
+    };
+}
+
+export fn WhileStatement(condition, body) {
+    return {
+        type: "WhileStatement",
+        condition: condition,
+        body: body
+    };
+}
+
+export fn ForStatement(init, condition, update, body) {
+    return {
+        type: "ForStatement",
+        init: init,
+        condition: condition,
+        update: update,
+        body: body
+    };
+}
+
+export fn ReturnStatement(value) {
+    return {
+        type: "ReturnStatement",
+        value: value
+    };
+}
+
+export fn BreakStatement() {
+    return {
+        type: "BreakStatement"
+    };
+}
+
+export fn ContinueStatement() {
+    return {
+        type: "ContinueStatement"
+    };
+}
+
+export fn BlockStatement(statements) {
+    return {
+        type: "BlockStatement",
+        statements: statements
+    };
+}
+
+export fn ThrowStatement(argument) {
+    return {
+        type: "ThrowStatement",
+        argument: argument
+    };
+}
+
+export fn TryStatement(tryBlock, catchVariable, catchBlock) {
+    return {
+        type: "TryStatement",
+        tryBlock: tryBlock,
+        catchVariable: catchVariable,
+        catchBlock: catchBlock
+    };
+}
+
+export fn ImportStatement(path, namedImports, namespaceImport, importAll) {
+    return {
+        type: "ImportStatement",
+        path: path,
+        namedImports: namedImports,
+        namespaceImport: namespaceImport,
+        importAll: importAll
+    };
+}
+
+export fn ExportStatement(declaration, specifiers) {
+    return {
+        type: "ExportStatement",
+        declaration: declaration,
+        specifiers: specifiers
+    };
+}
+
+export fn LogStatement(expression) {
+    return {
+        type: "LogStatement",
+        expression: expression
+    };
+}
+
+export fn DoWhileStatement(body, condition) {
+    return {
+        type: "DoWhileStatement",
+        body: body,
+        condition: condition
+    };
+}
+
+export fn SwitchStatement(value, cases) {
+    return {
+        type: "SwitchStatement",
+        value: value,
+        cases: cases
+    };
+}
+
+export fn ForInStatement(variable, collection, body) {
+    return {
+        type: "ForInStatement",
+        variable: variable,
+        collection: collection,
+        body: body
+    };
+}
+
+export fn ExpressionStatement(expression) {
+    return {
+        type: "ExpressionStatement",
+        expression: expression
+    };
+}
+
+export fn IntegerLiteral(value) {
+    return {
+        type: "IntegerLiteral",
+        value: value
+    };
+}
+
+export fn RealLiteral(value) {
+    return {
+        type: "RealLiteral",
+        value: value
+    };
+}
+
+export fn StringLiteral(value) {
+    return {
+        type: "StringLiteral",
+        value: value
+    };
+}
+
+export fn BooleanLiteral(value) {
+    return {
+        type: "BooleanLiteral",
+        value: value
+    };
+}
+
+export fn NullLiteral() {
+    return {
+        type: "NullLiteral",
+        value: null
+    };
+}
+
+export fn ArrayLiteral(elements) {
+    return {
+        type: "ArrayLiteral",
+        elements: elements
+    };
+}
+
+export fn ObjectLiteral(properties) {
+    return {
+        type: "ObjectLiteral",
+        properties: properties
+    };
+}
+
+export fn TemplateLiteral(parts) {
+    return {
+        type: "TemplateLiteral",
+        parts: parts
+    };
+}
+
+export fn Identifier(name) {
+    return {
+        type: "Identifier",
+        name: name
+    };
+}
+
+export fn BinaryExpression(left, op, right) {
+    return {
+        type: "BinaryExpression",
+        left: left,
+        op: op,
+        right: right
+    };
+}
+
+export fn UnaryExpression(op, operand) {
+    return {
+        type: "UnaryExpression",
+        op: op,
+        operand: operand
+    };
+}
+
+export fn CallExpression(callee, args) {
+    return {
+        type: "CallExpression",
+        callee: callee,
+        args: args
+    };
+}
+
+export fn IndexExpression(object, index) {
+    return {
+        type: "IndexExpression",
+        object: object,
+        index: index
+    };
+}
+
+export fn AssignmentExpression(target, value) {
+    return {
+        type: "AssignmentExpression",
+        target: target,
+        value: value
+    };
+}
+
+export fn TernaryExpression(condition, thenBranch, elseBranch) {
+    return {
+        type: "TernaryExpression",
+        condition: condition,
+        thenBranch: thenBranch,
+        elseBranch: elseBranch
+    };
+}
+
+export fn PropertyAccess(object, property) {
+    return {
+        type: "PropertyAccess",
+        object: object,
+        property: property
+    };
+}
+
+export fn ThisExpression() {
+    return {
+        type: "ThisExpression"
+    };
+}
+
+export fn NewExpression(expression) {
+    return {
+        type: "NewExpression",
+        expression: expression
+    };
+}
+
+export fn SuperExpression(isCallable, method) {
+    return {
+        type: "SuperExpression",
+        isCallable: isCallable,
+        method: method
+    };
+}
+
+export fn PrefixUpdateExpression(op, operand) {
+    return {
+        type: "PrefixUpdateExpression",
+        op: op,
+        operand: operand
+    };
+}
+
+export fn PostfixUpdateExpression(op, operand) {
+    return {
+        type: "PostfixUpdateExpression",
+        op: op,
+        operand: operand
+    };
+}
+
+export fn SpreadExpression(expression) {
+    return {
+        type: "SpreadExpression",
+        expression: expression
+    };
+}
+
+export fn SwitchCase(value, statements) {
+    return {
+        type: "SwitchCase",
+        value: value,
+        statements: statements
+    };
+}

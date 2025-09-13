@@ -1,0 +1,178 @@
+import * as Emitter from "../emitter.meow";
+import { OpCodes } from "../opCodes.meow";
+
+fn _emitConst(cg, value) {
+    let constIdx = cg.currentState.pool.add(value);
+
+    let reg = cg.currentState.allocator.ralloc();
+    Emitter.emit(cg.currentState.proto, OpCodes.LOAD_CONST, [reg, constIdx]);
+    return reg;
+}
+
+export fn visitIntegerLiteral(cg, node) {
+    let reg = cg.currentState.allocator.ralloc();
+    Emitter.emit(cg.currentState.proto, OpCodes.LOAD_INT, [reg, node.value]);
+    return reg;
+}
+
+export fn visitStringLiteral(cg, node) {
+    return _emitConst(cg, node.value);
+}
+
+export fn visitRealLiteral(cg, node) {
+    return _emitConst(cg, node.value);
+}
+
+export fn visitBooleanLiteral(cg, node) {
+    let reg = cg.currentState.allocator.ralloc();
+    let opcode = node.value ? OpCodes.LOAD_TRUE : OpCodes.LOAD_FALSE;
+    Emitter.emit(cg.currentState.proto, opcode, [reg]);
+    return reg;
+}
+
+export fn visitNullLiteral(cg, node) {
+    let reg = cg.currentState.allocator.ralloc();
+    Emitter.emit(cg.currentState.proto, OpCodes.LOAD_NULL, [reg]);
+    return reg;
+}
+
+export fn visitArrayLiteral(cg, node) {
+    let count = node.elements.length;
+    if (count == 0) {
+        let dst = cg.currentState.allocator.ralloc();
+        Emitter.emit(cg.currentState.proto, OpCodes.NEW_ARRAY, [dst, 0, 0]);
+        return dst;
+    }
+
+    cg.currentState.allocator.beginScope();
+    let startReg = cg.currentState.allocator.rallocBlock(count);
+    
+    for (let i = 0; i < count; ++i) {
+        let elemReg = cg.visitExpression(node.elements[i]);
+        let targetReg = startReg + i;
+        if (elemReg != targetReg) {
+            Emitter.emit(cg.currentState.proto, OpCodes.MOVE, [targetReg, elemReg]);
+        }
+    }
+
+    let dstReg = cg.currentState.allocator.ralloc();
+    Emitter.emit(cg.currentState.proto, OpCodes.NEW_ARRAY, [dstReg, startReg, count]);
+
+    
+    cg.currentState.allocator.endScope();
+    return dstReg;
+}
+
+export let visitObjectLiteral = fn(cg, node) {
+    let count = node.properties.length;
+    if (count == 0) {
+        let dst = cg.currentState.allocator.ralloc();
+        Emitter.emit(cg.currentState.proto, OpCodes.NEW_HASH, [dst, 0, 0]);
+        return dst;
+    }
+
+    cg.currentState.allocator.beginScope();
+
+    let startReg = cg.currentState.allocator.rallocBlock(count * 2);
+
+    for (let i = 0; i < count; ++i) {
+        let pair = node.properties[i];
+        let keyNode = pair.key;
+        let valNode = pair.value;
+
+        let targetKeyReg = startReg + i * 2;
+        let targetValReg = startReg + i * 2 + 1;
+
+
+        if (keyNode.type == 'StringLiteral') {
+            let constIdx = cg.currentState.pool.add(keyNode.value);
+            cg.currentState.allocator.withTemp(fn(tempReg) {
+                Emitter.emit(cg.currentState.proto, OpCodes.LOAD_CONST, [tempReg, constIdx]);
+                if (tempReg != targetKeyReg) {
+                    Emitter.emit(cg.currentState.proto, OpCodes.MOVE, [targetKeyReg, tempReg]);
+                }
+            });
+        } else if (keyNode.type == 'Identifier') {
+            let constIdx = cg.currentState.pool.add(keyNode.name);
+            cg.currentState.allocator.withTemp(fn(tempReg) {
+                Emitter.emit(cg.currentState.proto, OpCodes.LOAD_CONST, [tempReg, constIdx]);
+                if (tempReg != targetKeyReg) {
+                    Emitter.emit(cg.currentState.proto, OpCodes.MOVE, [targetKeyReg, tempReg]);
+                }
+            });
+        } else {
+
+            let keyReg = cg.visitExpression(keyNode);
+            if (keyReg != targetKeyReg) {
+                Emitter.emit(cg.currentState.proto, OpCodes.MOVE, [targetKeyReg, keyReg]);
+            }
+        }
+
+        let valReg = cg.visitExpression(valNode);
+        if (valReg != targetValReg) {
+            Emitter.emit(cg.currentState.proto, OpCodes.MOVE, [targetValReg, valReg]);
+        }
+    }
+
+    let dstReg = cg.currentState.allocator.ralloc();
+    Emitter.emit(cg.currentState.proto, OpCodes.NEW_HASH, [dstReg, startReg, count]);
+    cg.currentState.allocator.endScope();
+    return dstReg;
+};
+
+export let visitFunctionLiteral = fn(cg, node) {
+
+    let anon = Emitter.createAnonymousFunctionName();
+    let parentSource = (cg.currentState && cg.currentState.proto && cg.currentState.proto.sourceName) ? cg.currentState.proto.sourceName : "anon_parent";
+    let funcName = '@fn_' + anon + '_' + parentSource + '_' + str(cg.currentState ? cg.currentState.proto.code.length : 0);
+
+    cg.enterState(funcName);
+
+    let paramScope = cg.currentState.scope[0];
+    if (cg.isInsideClass) {
+        cg.currentState.allocator.ralloc();
+    }
+
+    for (param in node.parameters) {
+        let reg = cg.currentState.allocator.ralloc();
+        let localIdx = cg.currentState.localCount;
+        cg.currentState.localCount = localIdx + 1;
+        cg.currentState.regToLocalIndex[str(reg)] = localIdx;
+        cg.currentState.localIndexToReg[localIdx] = reg;
+        paramScope[param.name] = localIdx;
+    }
+
+    cg.visitStatement(node.body);
+
+    let childProto = cg.exitState();
+
+    assert(childProto.sourceName && childProto.sourceName.length > 3, "Bad childProto.sourceName after visitFunctionLiteral");
+
+    cg.protos[childProto.sourceName] = childProto;
+
+    let parentPool = cg.currentState.pool;
+    let protoIdx = parentPool.add(childProto);
+
+    let destReg = cg.currentState.allocator.ralloc();
+    Emitter.emit(cg.currentState.proto, OpCodes.CLOSURE, [destReg, protoIdx]);
+
+    return destReg;
+};
+
+export fn visitTemplateLiteral(cg, node) {
+    if (node.parts.length == 0) {
+        return _emitConst(cg, "");
+    }
+
+    let resultReg = cg.visitExpression(node.parts[0]);
+
+    cg.currentState.allocator.beginScope();
+    for (let i = 1; i < node.parts.length; ++i) {
+        let partReg = cg.visitExpression(node.parts[i]);
+        Emitter.emit(cg.currentState.proto, OpCodes.ADD, [resultReg, resultReg, partReg]);
+
+    }
+    cg.currentState.allocator.endScope();
+
+    return resultReg;
+}

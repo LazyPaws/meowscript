@@ -1,0 +1,519 @@
+import * as Emitter from "../emitter.meow";
+import { OpCodes } from "../opCodes.meow";
+import * as Io from "io";
+import * as Json from "json";
+import "array";
+
+fn _endScopeAndCloseUpvalues(cg) {
+    let scopeToEnd = cg.currentState.scope[cg.currentState.scope.length - 1];
+    let lowestRegisterToClose = -1;
+
+    for (varName in scopeToEnd.keys()) {
+        let localIndex = scopeToEnd[varName];
+
+        if (localIndex != null && cg.currentState.capturedLocals[localIndex]) {
+            let register = cg.currentState.localIndexToReg[localIndex];
+            if (register != null) {
+
+                if (lowestRegisterToClose == -1 || register < lowestRegisterToClose) {
+                    lowestRegisterToClose = register;
+                }
+            }
+        }
+
+        let register = cg.currentState.localIndexToReg[localIndex];
+        if (register != null) {
+            cg.currentState.localIndexToReg[localIndex] = null;
+            cg.currentState.regToLocalIndex[str(register)] = null;
+        }
+    }
+
+    if (lowestRegisterToClose != -1) {
+        Emitter.emit(cg.currentState.proto, OpCodes.CLOSE_UPVALUES, [lowestRegisterToClose]);
+    }
+
+    cg.currentState.scope.pop();
+    cg.currentState.allocator.endScope();
+}
+
+export let visitLetStatement = fn(cg, node) {
+    let name = node.name.name;
+    let scopeLevel = cg.currentState.scope.length - 1;
+    let currentScope = cg.currentState.scope[scopeLevel];
+
+    let destReg;
+    if (scopeLevel > 0) {
+
+        destReg = cg.currentState.allocator.take();
+    } else {
+
+        destReg = cg.currentState.allocator.ralloc();
+    }
+
+    let localIdx = cg.currentState.localCount++;
+    cg.currentState.regToLocalIndex[str(destReg)] = localIdx;
+    cg.currentState.localIndexToReg[localIdx] = destReg;
+    currentScope[name] = localIdx;
+
+    if (node.value != null) {
+        cg.currentState.allocator.beginScope();
+        let valueReg = cg.visitExpression(node.value);
+        Emitter.emit(cg.currentState.proto, OpCodes.MOVE, [destReg, valueReg]);
+        cg.currentState.allocator.endScope();
+    } else {
+
+        Emitter.emit(cg.currentState.proto, OpCodes.LOAD_NULL, [destReg]);
+    }
+
+    if (scopeLevel == 0 && cg.states.length == 1) {
+        let constIdx = cg.currentState.pool.add(name);
+        Emitter.emit(cg.currentState.proto, OpCodes.SET_GLOBAL, [constIdx, destReg]);
+    }
+};
+
+export fn visitClassStatement(cg, node) {
+    let className = node.name.name;
+    let classNameIdx = cg.currentState.pool.add(className);
+
+    
+
+    let classReg = cg.currentState.allocator.take();
+
+    let localIdx = cg.currentState.localCount++;
+    
+
+    cg.currentState.regToLocalIndex[str(classReg)] = localIdx;
+    cg.currentState.localIndexToReg[localIdx] = classReg;
+
+    let currentScope = cg.currentState.scope[cg.currentState.scope.length - 1];
+    currentScope[className] = localIdx;
+
+
+    Emitter.emit(cg.currentState.proto, OpCodes.NEW_CLASS, [classReg, classNameIdx]);
+    
+
+    cg.currentState.allocator.beginScope(); 
+    if (node.superclass != null) {
+        let parentClassReg = cg.visitExpression(node.superclass);
+        Emitter.emit(cg.currentState.proto, OpCodes.INHERIT, [classReg, parentClassReg]);
+    }
+
+    cg.isInsideClass = true;
+    for (methodNode in node.methods) {
+        let methodName = methodNode.name.name;
+        let functionLiteral = methodNode.value;
+        let methodClosureReg = cg.visitExpression(functionLiteral);
+        let methodNameIdx = cg.currentState.pool.add(methodName);
+        Emitter.emit(cg.currentState.proto, OpCodes.SET_METHOD, [classReg, methodNameIdx, methodClosureReg]);
+    }
+    cg.isInsideClass = false;
+    cg.currentState.allocator.endScope();
+
+    if (cg.currentState.scope.length == 1) {
+        Emitter.emit(cg.currentState.proto, OpCodes.SET_GLOBAL, [classNameIdx, classReg]);
+    }
+}
+
+export fn visitReturnStatement(cg, node) {
+    let reg;
+    if (node.value != null) {
+        reg = cg.visitExpression(node.value);
+    } else {
+        reg = cg.currentState.allocator.take();
+        Emitter.emit(cg.currentState.proto, OpCodes.LOAD_NULL, [reg]);
+    }
+    Emitter.emit(cg.currentState.proto, OpCodes.RETURN, [reg]);
+}
+
+export fn visitIfStatement(cg, node) {
+    let elseLabel = Emitter.createLabel("L_ELSE");
+    let endLabel = Emitter.createLabel("L_ENDIF");
+
+    cg.currentState.allocator.beginScope();
+    let condReg = cg.visitExpression(node.condition);
+    Emitter.emit(cg.currentState.proto, OpCodes.JUMP_IF_FALSE, [condReg, {"label": node.elseBranch ? elseLabel : endLabel}]);
+    cg.currentState.allocator.endScope();
+
+    cg.visitStatement(node.thenBranch);
+
+    if (node.elseBranch != null) {
+        Emitter.emit(cg.currentState.proto, OpCodes.JUMP, [{"label": endLabel}]);
+        Emitter.defineLabel(cg.currentState.proto, elseLabel);
+        cg.visitStatement(node.elseBranch);
+    }
+
+    Emitter.defineLabel(cg.currentState.proto, endLabel);
+}
+
+export fn visitWhileStatement(cg, node) {
+    let startLabel = Emitter.createLabel("L_WHILE_START");
+    let endLabel = Emitter.createLabel("L_WHILE_END");
+
+    cg.currentState.loopLabels.push({ "continueTarget": startLabel, "breakTarget": endLabel });
+
+    Emitter.defineLabel(cg.currentState.proto, startLabel);
+
+    cg.currentState.allocator.beginScope();
+    let condReg = cg.visitExpression(node.condition);
+    Emitter.emit(cg.currentState.proto, OpCodes.JUMP_IF_FALSE, [condReg, {"label": endLabel}]);
+    cg.currentState.allocator.endScope();
+
+    cg.visitStatement(node.body);
+    Emitter.emit(cg.currentState.proto, OpCodes.JUMP, [{"label": startLabel}]);
+    Emitter.defineLabel(cg.currentState.proto, endLabel);
+
+    cg.currentState.loopLabels.pop();
+}
+
+export fn visitBreakStatement(cg, node) {
+    assert(cg.currentState.loopLabels.length > 0, "Lỗi: 'break' chỉ có thể được dùng trong vòng lặp!");
+    let labels = cg.currentState.loopLabels[cg.currentState.loopLabels.length - 1];
+    
+    assert(labels.breakTarget, "Lỗi logic: Vòng lặp không có nhãn 'break'.");
+    Emitter.emit(cg.currentState.proto, OpCodes.JUMP, [{"label": labels.breakTarget}]);
+}
+
+export fn visitContinueStatement(cg, node) {
+    assert(cg.currentState.loopLabels.length > 0, "Lỗi: 'continue' chỉ có thể được dùng trong vòng lặp!");
+    let labels = cg.currentState.loopLabels[cg.currentState.loopLabels.length - 1];
+
+    assert(labels.continueTarget, "Lỗi logic: Vòng lặp không hỗ trợ 'continue'.");
+    Emitter.emit(cg.currentState.proto, OpCodes.JUMP, [{"label": labels.continueTarget}]);
+}
+
+export fn visitBlockStatement(cg, node) {
+    cg.currentState.allocator.beginScope();
+    cg.currentState.scope.push({});
+
+    for (statement in node.statements) {
+        cg.visitStatement(statement);
+    }
+
+    _endScopeAndCloseUpvalues(cg);
+}
+
+export fn visitExpressionStatement(cg, node) {
+    cg.currentState.allocator.beginScope();
+    cg.visitExpression(node.expression);
+    cg.currentState.allocator.endScope();
+}
+
+export fn visitForStatement(cg, node) {
+
+    cg.currentState.allocator.beginScope();
+    cg.currentState.scope.push({});
+    
+    if (node.init != null) {
+        cg.visitStatement(node.init);
+    }
+
+    let conditionLabel = Emitter.createLabel("L_FOR_COND");
+    let updateLabel = Emitter.createLabel("L_FOR_UPDATE");
+    let endLabel = Emitter.createLabel("L_FOR_END");
+    cg.currentState.loopLabels.push({ "continueTarget": updateLabel, "breakTarget": endLabel });
+
+    Emitter.defineLabel(cg.currentState.proto, conditionLabel);
+
+    if (node.condition != null) {
+        cg.currentState.allocator.withTemp(fn(condReg) {
+             let tempReg = cg.visitExpression(node.condition);
+             Emitter.emit(cg.currentState.proto, OpCodes.MOVE, [condReg, tempReg]);
+             Emitter.emit(cg.currentState.proto, OpCodes.JUMP_IF_FALSE, [condReg, {"label": endLabel}]);
+        });
+    }
+
+    cg.visitStatement(node.body);
+
+    Emitter.defineLabel(cg.currentState.proto, updateLabel);
+    if (node.update != null) {
+        cg.currentState.allocator.beginScope();
+        cg.visitExpression(node.update);
+        cg.currentState.allocator.endScope();
+    }
+
+    Emitter.emit(cg.currentState.proto, OpCodes.JUMP, [{"label": conditionLabel}]);
+    Emitter.defineLabel(cg.currentState.proto, endLabel);
+
+    cg.currentState.loopLabels.pop();
+
+    _endScopeAndCloseUpvalues(cg);
+}
+
+export fn visitForInStatement(cg, node) {
+    cg.currentState.allocator.beginScope();
+    cg.currentState.scope.push({});
+
+    let collectionReg = cg.visitExpression(node.collection);
+    let keysArrayReg = cg.currentState.allocator.take();
+    Emitter.emit(cg.currentState.proto, OpCodes.GET_VALUES, [keysArrayReg, collectionReg]);
+
+    let indexReg = cg.currentState.allocator.take();
+    Emitter.emit(cg.currentState.proto, OpCodes.LOAD_INT, [indexReg, 0]);
+
+    let lengthReg = cg.currentState.allocator.take();
+    let lengthNameIdx = cg.currentState.pool.add("length");
+    Emitter.emit(cg.currentState.proto, OpCodes.GET_PROP, [lengthReg, keysArrayReg, lengthNameIdx]);
+    
+    let startLabel = Emitter.createLabel("L_FORIN_START");
+    let endLabel = Emitter.createLabel("L_FORIN_END");
+    
+    cg.currentState.loopLabels.push({ "continueTarget": startLabel, "breakTarget": endLabel });
+    Emitter.defineLabel(cg.currentState.proto, startLabel);
+    
+    let condReg = cg.currentState.allocator.take();
+    Emitter.emit(cg.currentState.proto, OpCodes.LT, [condReg, indexReg, lengthReg]);
+    Emitter.emit(cg.currentState.proto, OpCodes.JUMP_IF_FALSE, [condReg, {"label": endLabel}]);
+
+    let keyReg = cg.currentState.allocator.take();
+    Emitter.emit(cg.currentState.proto, OpCodes.GET_INDEX, [keyReg, keysArrayReg, indexReg]);
+
+    let varName = node.variable.name;
+    let localIdx = cg.currentState.localCount++;
+    cg.currentState.regToLocalIndex[str(keyReg)] = localIdx;
+    cg.currentState.localIndexToReg[localIdx] = keyReg;
+    cg.currentState.scope[cg.currentState.scope.length - 1][varName] = localIdx;
+    
+    cg.visitStatement(node.body);
+    
+    cg.currentState.allocator.withTemp(fn(oneReg) {
+        Emitter.emit(cg.currentState.proto, OpCodes.LOAD_INT, [oneReg, 1]);
+        Emitter.emit(cg.currentState.proto, OpCodes.ADD, [indexReg, indexReg, oneReg]);
+    });
+    
+    Emitter.emit(cg.currentState.proto, OpCodes.JUMP, [{"label": startLabel}]);
+    Emitter.defineLabel(cg.currentState.proto, endLabel);
+    
+    cg.currentState.loopLabels.pop();
+
+    let scopeToEnd = cg.currentState.scope[cg.currentState.scope.length - 1];
+    let lowestRegisterToClose = -1;
+
+    for (varName in scopeToEnd.keys()) {
+        let localIndex = scopeToEnd[varName];
+        if (localIndex != null) {
+            if (cg.currentState.capturedLocals[localIndex]) {
+                let register = cg.currentState.localIndexToReg[localIndex];
+                if (register != null) {
+                    if (lowestRegisterToClose == -1 || register < lowestRegisterToClose) {
+                        lowestRegisterToClose = register;
+                    }
+                }
+            }
+            let register = cg.currentState.localIndexToReg[localIndex];
+            if (register != null) {
+                cg.currentState.localIndexToReg[localIndex] = null;
+                cg.currentState.regToLocalIndex[str(register)] = null;
+            }
+        }
+    }
+    
+    if (lowestRegisterToClose != -1) {
+        Emitter.emit(cg.currentState.proto, OpCodes.CLOSE_UPVALUES, [lowestRegisterToClose]);
+    }
+    
+    cg.currentState.scope.pop();
+    cg.currentState.allocator.endScope(); 
+}
+
+export fn visitThrowStatement(cg, node) {
+    cg.currentState.allocator.beginScope();
+    let errorReg = cg.visitExpression(node.argument);
+    Emitter.emit(cg.currentState.proto, OpCodes.THROW, [errorReg]);
+    cg.currentState.allocator.endScope();
+}
+
+export fn visitTryStatement(cg, node) {
+    let catchLabel = Emitter.createLabel("L_CATCH");
+    let endLabel = Emitter.createLabel("L_END_TRY");
+
+    Emitter.emit(cg.currentState.proto, OpCodes.SETUP_TRY, [{"label": catchLabel}]);
+    cg.visitStatement(node.tryBlock);
+    Emitter.emit(cg.currentState.proto, OpCodes.POP_TRY, []);
+    Emitter.emit(cg.currentState.proto, OpCodes.JUMP, [{"label": endLabel}]);
+
+    Emitter.defineLabel(cg.currentState.proto, catchLabel);
+    
+
+    cg.currentState.allocator.beginScope();
+    cg.currentState.scope.push({});
+    
+    if (node.catchVariable != null) {
+        let errorVarName = node.catchVariable.name;
+
+        let errorReg = 0;
+        let localIdx = cg.currentState.localCount++;
+        cg.currentState.regToLocalIndex[str(errorReg)] = localIdx;
+        cg.currentState.localIndexToReg[localIdx] = errorReg;
+        cg.currentState.scope[cg.currentState.scope.length - 1][errorVarName] = localIdx;
+    }
+    
+    cg.visitStatement(node.catchBlock);
+
+    _endScopeAndCloseUpvalues(cg);
+    Emitter.defineLabel(cg.currentState.proto, endLabel);
+}
+
+export fn visitExportStatement(cg, node) {
+    cg.visitStatement(node.declaration);
+    let name = node.declaration.name.name;
+    let currentScope = cg.currentState.scope[cg.currentState.scope.length - 1];
+    assert(currentScope[name] != null, "Lỗi logic: Biến '" + name + "' không có trong scope sau khi khai báo.");
+
+    let localIndex = currentScope[name];
+    let regIndex = cg.currentState.localIndexToReg[localIndex];
+    assert(regIndex != null, "Lỗi nghiêm trọng: Không tìm thấy thanh ghi cho biến được export '" + name + "'");
+
+    let nameIdx = cg.currentState.pool.add(name);
+    Emitter.emit(cg.currentState.proto, OpCodes.EXPORT, [nameIdx, regIndex]);
+}
+
+export let stdlib = { "io": true, "array": true, "json": true, "object": true, "string": true, "system": true };
+fn _getDirectoryPath(fullPath) {
+    let filename = Io.getFileName(fullPath);
+    if (filename.length >= fullPath.length) return "";
+    return fullPath.slice(0, fullPath.length - filename.length);
+}
+
+export fn visitImportStatement(cg, node) {
+    let sourcePath = node.path.value;
+    let pathIdx;
+
+    if (stdlib[sourcePath] != null || sourcePath.endsWith(".meowb")) {
+        pathIdx = cg.currentState.pool.add(sourcePath);
+    } else if (sourcePath.endsWith(".meow")) {
+        let currentFileDir = _getDirectoryPath(cg.currentState.proto.sourceName);
+        let importAbsolutePath = Io.getAbsolutePath(currentFileDir + "/" + sourcePath);
+        let cachePath = cg.compiler.compiledModules[importAbsolutePath];
+        assert(cachePath, "Lỗi logic: Module " + importAbsolutePath + " lẽ ra phải được biên dịch rồi!");
+        pathIdx = cg.currentState.pool.add(cachePath);
+    } else {
+
+        pathIdx = cg.currentState.pool.add(sourcePath);
+    }
+
+    if (node.namespaceImport != null) {
+
+        let moduleName = node.namespaceImport.name;
+        let moduleReg = cg.currentState.allocator.ralloc();
+        Emitter.emit(cg.currentState.proto, OpCodes.IMPORT_MODULE, [moduleReg, pathIdx]);
+
+        let localIdx = cg.currentState.localCount++;
+        cg.currentState.regToLocalIndex[str(moduleReg)] = localIdx;
+        cg.currentState.localIndexToReg[localIdx] = moduleReg;
+        cg.currentState.scope[cg.currentState.scope.length - 1][moduleName] = localIdx;
+
+        if (cg.currentState.scope.length == 1 && cg.states.length == 1) {
+            let nameIdx = cg.currentState.pool.add(moduleName);
+            Emitter.emit(cg.currentState.proto, OpCodes.SET_GLOBAL, [nameIdx, moduleReg]);
+        }
+
+        cg.currentState.moduleVariables[moduleName] = true;
+
+    } else if (node.namedImports.length > 0) {
+
+        cg.currentState.allocator.withTemp(fn(tempModuleReg) {
+            Emitter.emit(cg.currentState.proto, OpCodes.IMPORT_MODULE, [tempModuleReg, pathIdx]);
+            
+            for (importId in node.namedImports) {
+                let importName = importId.name;
+                let nameIdx = cg.currentState.pool.add(importName);
+                
+
+                let localReg = cg.currentState.allocator.ralloc(); 
+                Emitter.emit(cg.currentState.proto, OpCodes.GET_EXPORT, [localReg, tempModuleReg, nameIdx]);
+
+                let localIdx = cg.currentState.localCount++;
+                cg.currentState.regToLocalIndex[str(localReg)] = localIdx;
+                cg.currentState.localIndexToReg[localIdx] = localReg;
+
+                cg.currentState.scope[cg.currentState.scope.length - 1][importName] = localIdx;
+
+                if (cg.currentState.scope.length == 1 && cg.states.length == 1) {
+                    Emitter.emit(cg.currentState.proto, OpCodes.SET_GLOBAL, [nameIdx, localReg]);
+                }
+                
+                cg.currentState.importedVariables[importName] = true;
+            }
+        });
+
+    } else {
+
+        cg.currentState.allocator.withTemp(fn(tempModuleReg) {
+            Emitter.emit(cg.currentState.proto, OpCodes.IMPORT_MODULE, [tempModuleReg, pathIdx]);
+        });
+    }
+}
+
+export fn visitDoWhileStatement(cg, node) {
+    let startLabel = Emitter.createLabel("L_DOWHILE_START");
+    let endLabel = Emitter.createLabel("L_DOWHILE_END");
+    
+    cg.currentState.loopLabels.push({ "continueTarget": startLabel, "breakTarget": endLabel });
+    Emitter.defineLabel(cg.currentState.proto, startLabel);
+    
+    cg.visitStatement(node.body);
+
+    cg.currentState.allocator.beginScope();
+    let condReg = cg.visitExpression(node.condition);
+    Emitter.emit(cg.currentState.proto, OpCodes.JUMP_IF_TRUE, [condReg, {"label": startLabel}]);
+    cg.currentState.allocator.endScope();
+
+    Emitter.defineLabel(cg.currentState.proto, endLabel);
+    cg.currentState.loopLabels.pop();
+}
+
+export fn visitSwitchStatement(cg, node) {
+    cg.currentState.allocator.beginScope();
+    cg.currentState.scope.push({});
+
+    let switchValueReg = cg.visitExpression(node.value);
+    let bodyLabels = [];
+    let testChainLabels = [];
+    let defaultBodyLabel = null;
+    let endLabel = Emitter.createLabel("L_SWITCH_END");
+    
+    for (i in range(0, node.cases.length)) {
+        bodyLabels.push(Emitter.createLabel("L_CASE_BODY"));
+        testChainLabels.push(Emitter.createLabel("L_NEXT_TEST"));
+    }
+    cg.currentState.loopLabels.push({ "continueTarget": null, "breakTarget": endLabel });
+
+    for (i in range(0, node.cases.length)) {
+        let cas = node.cases[i];
+        if (i > 0) {
+            Emitter.defineLabel(cg.currentState.proto, testChainLabels[i-1]);
+        }
+
+        if (cas.value != null) {
+            let caseValueReg = cg.visitExpression(cas.value);
+            let eqReg = cg.currentState.allocator.take();
+            Emitter.emit(cg.currentState.proto, OpCodes.EQ, [eqReg, switchValueReg, caseValueReg]);
+            Emitter.emit(cg.currentState.proto, OpCodes.JUMP_IF_FALSE, [eqReg, {"label": testChainLabels[i]}]);
+            Emitter.emit(cg.currentState.proto, OpCodes.JUMP, [{"label": bodyLabels[i]}]);
+        } else {
+            defaultBodyLabel = bodyLabels[i];
+            Emitter.emit(cg.currentState.proto, OpCodes.JUMP, [{"label": testChainLabels[i]}]);
+        }
+    }
+    
+    Emitter.defineLabel(cg.currentState.proto, testChainLabels[testChainLabels.length - 1]);
+    let finalJumpTarget = defaultBodyLabel ? defaultBodyLabel : endLabel;
+    Emitter.emit(cg.currentState.proto, OpCodes.JUMP, [{"label": finalJumpTarget}]);
+
+    for (i in range(0, node.cases.length)) {
+        Emitter.defineLabel(cg.currentState.proto, bodyLabels[i]);
+        for (stmt in node.cases[i].statements) {
+            cg.visitStatement(stmt);
+        }
+        
+        let bodyStmts = node.cases[i].statements;
+        if (bodyStmts.length == 0 || (bodyStmts[bodyStmts.length-1].type != "ReturnStatement" && bodyStmts[bodyStmts.length-1].type != "BreakStatement" && bodyStmts[bodyStmts.length-1].type != "ContinueStatement" && bodyStmts[bodyStmts.length-1].type != "ThrowStatement")) {
+             Emitter.emit(cg.currentState.proto, OpCodes.JUMP, [{"label": endLabel}]);
+        }
+    }
+
+    Emitter.defineLabel(cg.currentState.proto, endLabel);
+    cg.currentState.loopLabels.pop();
+
+    _endScopeAndCloseUpvalues(cg);
+}

@@ -1,0 +1,167 @@
+
+
+import * as String from "string";
+import * as Json from "json";
+
+import { OpCodes } from "./opCodes.meow";
+
+let JUMP_INSTRUCTIONS = {
+    [OpCodes.JUMP]:          { targetArgIndex: 0 },
+    [OpCodes.JUMP_IF_FALSE]: { targetArgIndex: 1 },
+    [OpCodes.JUMP_IF_TRUE]:  { targetArgIndex: 1 },
+    [OpCodes.SETUP_TRY]:     { targetArgIndex: 0 },
+};
+
+export class BytecodeStringifier {
+    fn init() {
+        this.ipToLabel = {};
+        this.nextLabelId = 0;
+    }
+
+    fn stringify(protos) {
+        this._allProtos = {};
+        let initialKeys = protos.keys();
+        for (let i = 0; i < initialKeys.length; ++i) {
+            let k = initialKeys[i];
+            this._allProtos[k] = protos[k];
+        }
+
+        let changed = true;
+        while (changed) {
+            changed = false;
+
+            let names = this._allProtos.keys();
+            for (let i = 0; i < names.length; ++i) {
+                let pname = names[i];
+                let p = this._allProtos[pname];
+                if (!p || !p.constantPool) continue;
+                for (let ci = 0; ci < p.constantPool.length; ++ci) {
+                    let c = p.constantPool[ci];
+                    if (typeof(c) == "object" && c != null && c.sourceName) {
+                        if (this._allProtos[c.sourceName] == null) {
+                            this._allProtos[c.sourceName] = c;
+                            changed = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        let protoNames = this._allProtos.keys();
+        protoNames.sort();
+
+        let result = [];
+        for (let i = 0; i < protoNames.length; ++i) {
+            let protoName = protoNames[i];
+            let proto = this._allProtos[protoName];
+            result.push(this._stringifyProto(proto, protoName));
+        }
+        return String.join("\n\n", result);
+    }
+
+    fn _stringifyProto(proto, protoName) {
+
+        this.ipToLabel = {};
+        this.nextLabelId = 0;
+        let output = [];
+
+        this._collectLabels(proto.code);
+
+        output.push(".func " + protoName);
+        output.push("    .registers " + str(proto.numRegisters));
+        if (proto.numUpvalues > 0) {
+            output.push("    .upvalues " + str(proto.numUpvalues));
+        }
+        output.push("");
+
+        if (proto.constantPool.length > 0) {
+            for (constant in proto.constantPool) {
+                output.push("    .const " + this._stringifyConst(constant));
+            }
+            output.push("");
+        }
+
+        if (proto.upvalueDescs && proto.upvalueDescs.length > 0) {
+            for (let i = 0; i < proto.upvalueDescs.length; ++i) {
+                let d = proto.upvalueDescs[i];
+                let t = d.isLocal ? "local" : "parent_upvalue";
+                output.push("    .upvalue " + str(i) + " " + t + " " + str(d.index));
+            }
+            output.push("");
+        }
+        
+        for (let ip = 0; ip < proto.code.length; ++ip) {
+            if (this.ipToLabel[str(ip)]) {
+                output.push(this.ipToLabel[str(ip)] + ":");
+            }
+            output.push("    " + this._stringifyInstruction(proto.code[ip]));
+        }
+
+        let endIp = proto.code.length;
+        if (this.ipToLabel[str(endIp)]) {
+            output.push(this.ipToLabel[str(endIp)] + ":");
+        }
+
+        output.push(".endfunc");
+        return String.join("\n", output);
+    }
+
+    fn _stringifyConst(c) {
+        let t = typeof(c);
+        if (t == "string") {
+            return Json.stringify(c);
+        }
+        if (t == "object" && c != null) {
+            if (c["sourceName"]) {
+
+                if (this._allProtos && this._allProtos[c.sourceName] == null) {
+                    print("[WARN] Stringifier: referenced proto '" + c.sourceName + "' not present in _allProtos");
+                }
+                return c.sourceName;
+            }
+        }
+        print("str():", str);
+        return str(c);
+    }
+
+    fn _collectLabels(code) {
+
+        for (let ip = 0; ip < code.length; ++ip) {
+            let inst = code[ip];
+            if (inst == null) continue;
+            let ji = JUMP_INSTRUCTIONS[inst.op];
+            if (ji != null) {
+                let targetIp = inst.args[ji.targetArgIndex];
+                if (this.ipToLabel[str(targetIp)] == null) {
+                    let labelName = "_L" + this.nextLabelId;
+                    this.nextLabelId = this.nextLabelId + 1;
+                    this.ipToLabel[str(targetIp)] = labelName;
+                }
+            }
+        }
+    }
+
+    fn _stringifyInstruction(inst) {
+        let op = inst.op;
+        let args = inst.args;
+        let argStrings = [];
+
+        if (JUMP_INSTRUCTIONS[op] != null) {
+            let jumpInfo = JUMP_INSTRUCTIONS[op];
+            for (let i = 0; i < args.length; ++i) {
+                if (i == jumpInfo.targetArgIndex) {
+
+                    argStrings.push(this.ipToLabel[str(args[i])]);
+                } else {
+                    argStrings.push(str(args[i]));
+                }
+            }
+        } else {
+            for (let i = 0; i < args.length; ++i) {
+                argStrings.push(str(args[i]));
+            }
+        }
+        return op + " " + String.join(" ", argStrings);
+    }
+
+}

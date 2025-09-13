@@ -1,0 +1,28 @@
+
+export let Diagnostic = {
+    ParseErr: fn(message, token) {
+        return "Lỗi phân tích cú pháp: " + message + " tại " + token.file + ", dòng " + token.line + ", cột " + token.col;
+    }
+};
+
+export let Precedence = {
+    NONE: 0,
+    ASSIGN: 1,
+    NULLISH: 2,
+    TERNARY: 3,
+    LOGICAL_OR: 4,
+    LOGICAL_AND: 5,
+    BITWISE_OR: 6,
+    BITWISE_XOR: 7,
+    BITWISE_AND: 8,
+    EQUALITY: 9,
+    COMPARISON: 10,
+    BITWISE_SHIFT: 11,
+    SUM: 12,
+    PRODUCT: 13,
+    EXPONENT: 14,
+    UNARY: 15,
+    CALL: 16,
+    INDEX: 17,
+    PRIMARY: 18,
+};

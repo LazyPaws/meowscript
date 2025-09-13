@@ -1,0 +1,13 @@
+import { Base, compute } from "./math.meow";
+
+let base = new Base(true);
+
+print(base.named);
+
+print(compute(1, 2, 3));
+
+let x = 10.9;
+
+print(x);
+
+print(int(x));

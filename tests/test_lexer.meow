@@ -1,0 +1,22 @@
+import { Lexer } from "../frontend/Lexer.meow";
+import { Parser } from "../frontend/Parser.meow";
+import { TokenType } from "../frontend/token.meow";
+import { Program, LetStatement, FunctionLiteral, ClassStatement, IfStatement, WhileStatement, ForStatement, ReturnStatement, BreakStatement, ContinueStatement, BlockStatement, ThrowStatement, TryStatement, ImportStatement, ExportStatement, LogStatement, DoWhileStatement, SwitchStatement, ForInStatement, ExpressionStatement, IntegerLiteral, RealLiteral, StringLiteral, BooleanLiteral, NullLiteral, ArrayLiteral, ObjectLiteral, TemplateLiteral, Identifier, BinaryExpression, UnaryExpression, CallExpression, IndexExpression, AssignmentExpression, TernaryExpression, PropertyAccess, ThisExpression, NewExpression, SuperExpression, PrefixUpdateExpression, PostfixUpdateExpression, SpreadExpression, SwitchCase } from "../frontend/Ast.meow";
+import * as Utils from "../utils/checkType.meow";
+import * as Io from "io";
+import * as Json from "json";
+let source = "let x = 42; if x > 10 print(x); while (--x) print(x);";
+
+let lexer = new Lexer(source);
+
+let tokens = lexer.tokenize();
+
+let parser = new Parser(tokens);
+
+let ast = parser.parseProgram();
+
+print("--- In tokens ---");
+print(tokens);
+
+print("--- In ast ---");
+print(ast);

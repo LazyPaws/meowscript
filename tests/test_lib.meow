@@ -1,0 +1,5 @@
+import * as Io from "io";
+
+print(Io.write);
+
+Io.write("test_lib.txt", "Hello World in MeowScript");

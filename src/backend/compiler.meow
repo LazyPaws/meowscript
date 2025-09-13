@@ -1,0 +1,232 @@
+import * as CodeGenerator from "./codeGenerator.meow";
+import * as Io from "io";
+import * as Json from "json";
+import * as Meta from "meta";
+import { makeCacheFile } from "./utils/makeCacheFile.meow";
+import { BytecodeStringifier } from "./bytecodeStringifier.meow";
+
+fn _getDirectoryPath(fullPath) {
+    let filename = Io.getFileName(fullPath);
+    if (filename.length >= fullPath.length) return "";
+    return fullPath.slice(0, fullPath.length - filename.length);
+}
+
+fn _isAbsolutePath(path) {
+    if (path.length == 0) return false;
+
+    if (path[0] == "/" || path[0] == "\\") return true;
+
+    if (path.length >= 3 && path[1] == ":") {
+        let driveLetter = path[0];
+        if ((driveLetter >= "a" && driveLetter <= "z") || (driveLetter >= "A" && driveLetter <= "Z")) {
+            if (path[2] == "/" || path[2] == "\\") return true;
+        }
+    }
+    return false;
+}
+
+export class Compiler {
+    fn init(isNoCache, options) {
+        this.compiledModules = {};
+        this.isNoCache = isNoCache;
+        this.dependencyGraph = {};
+        this.reverseGraph = {};
+        this.options = options || {};
+    }
+
+    fn compileProject(entryPath) {
+        let initialDir = ".";
+        let entryCache = this._compileFile(entryPath, initialDir);
+        if (this.options.bundle) {
+            return this._createBundle(entryPath);
+        }
+        if (this.options.out) {
+            Io.copyFile(entryCache, this.options.out);
+            print("✅ Viết output vào: " + this.options.out);
+            return Io.getAbsolutePath(this.options.out);
+        }
+        return entryCache;
+    }
+
+    fn _resolvePath(p, importerDir) {
+        if (_isAbsolutePath(p)) return Io.getAbsolutePath(p);
+        return Io.getAbsolutePath(importerDir + "/" + p);
+    }
+
+    fn _extractImportsFromAST(ast, sourceDir) {
+        let imports = [];
+        if (!ast || !ast.body) return imports;
+        for (stmt in ast.body) {
+            if (stmt.type == "ImportStatement") {
+                let dependencyPath = stmt.path.value;
+                if (dependencyPath.endsWith(".meow")) {
+                    imports.push(this._resolvePath(dependencyPath, sourceDir));
+                }
+            }
+        }
+        return imports;
+    }
+
+    fn _gatherDependents(absSource, accum) {
+        if (!accum) accum = {};
+        let direct = this.reverseGraph[absSource];
+        if (!direct) return accum;
+        for (d in direct) {
+            if (!accum[d]) {
+                accum[d] = true;
+                this._gatherDependents(d, accum);
+            }
+        }
+        return accum;
+    }
+
+    fn _isCacheValid(absSourcePath, cachePath) {
+        if (this.isNoCache || this.options.force) return false;
+        if (!Io.fileExists(cachePath)) return false;
+
+        let metaPath = cachePath + ".meta";
+        if (!Io.fileExists(metaPath)) return false;
+
+        let metaText = Io.read(metaPath);
+        if (!metaText) return false;
+
+        let meta = Json.parse(metaText);
+        if (!meta) return false;
+
+        if (!Io.fileExists(absSourcePath)) return false;
+        let srcTime = Io.getFileTimestamp(absSourcePath);
+        let srcSize = Io.getFileSize(absSourcePath);
+        if (meta.srcTime != srcTime || meta.srcSize != srcSize) return false;
+
+        for (imp in meta.imports) {
+            if (!Io.fileExists(imp)) return false;
+            let t = Io.getFileTimestamp(imp);
+            let s = Io.getFileSize(imp);
+            if (!meta.importTimes || !meta.importSizes) return false;
+            if (meta.importTimes[imp] != t || meta.importSizes[imp] != s) return false;
+        }
+
+        return true;
+    }
+
+    fn _compileFile(sourcePath, importerDir) {
+        let absolutePath = this._resolvePath(sourcePath, importerDir);
+
+        if (this.compiledModules[absolutePath]) return this.compiledModules[absolutePath];
+
+        let cachePath = makeCacheFile(absolutePath, "build/cache");
+        let metaPath = cachePath + ".meta";
+
+        if (this._isCacheValid(absolutePath, cachePath)) {
+            let metaText = Io.read(metaPath);
+            if (!metaText) {
+                print("[ERROR] Không thể đọc meta file: " + metaPath);
+                System.exit(1);
+            }
+            let meta = Json.parse(metaText);
+            this.dependencyGraph[absolutePath] = meta.imports || [];
+
+            for (imp in this.dependencyGraph[absolutePath]) {
+                if (!this.reverseGraph[imp]) this.reverseGraph[imp] = {};
+                this.reverseGraph[imp][absolutePath] = true;
+            }
+
+            this.compiledModules[absolutePath] = Io.getAbsolutePath(cachePath);
+            print("♻️ Đã dùng lại cache cho: " + absolutePath);
+            return Io.getAbsolutePath(cachePath);
+        }
+
+        if (!Io.fileExists(absolutePath)) {
+            print("[ERROR] File nguồn không tồn tại: " + absolutePath);
+            System.exit(1);
+        }
+
+        let source = Io.read(absolutePath);
+        if (source == null) {
+            print("[ERROR] Không thể đọc file nguồn: " + absolutePath);
+            System.exit(1);
+        }
+
+
+        let ast = Meta.compile(source);
+        if (!ast) {
+            print("[ERROR] Meta.compile trả về null/undefined cho: " + absolutePath);
+            System.exit(1);
+        }
+
+        let sourceDir = _getDirectoryPath(absolutePath);
+        let imports = this._extractImportsFromAST(ast, sourceDir);
+
+        for (imp in imports) {
+            this._compileFile(imp, sourceDir);
+            if (!this.reverseGraph[imp]) this.reverseGraph[imp] = {};
+            this.reverseGraph[imp][absolutePath] = true;
+        }
+
+        let generator = CodeGenerator.CodeGenerator(ast, this, absolutePath);
+        let protos = generator.compile();
+
+        let stringifier = BytecodeStringifier();
+        let bytecodeText = stringifier.stringify(protos);
+
+        Io.write(cachePath, bytecodeText);
+
+        let metaOut = { imports: imports, srcTime: Io.getFileTimestamp(absolutePath), srcSize: Io.getFileSize(absolutePath) };
+        metaOut.importTimes = {};
+        metaOut.importSizes = {};
+        for (imp in imports) {
+            metaOut.importTimes[imp] = Io.getFileTimestamp(imp);
+            metaOut.importSizes[imp] = Io.getFileSize(imp);
+        }
+        Io.write(metaPath, Json.stringify(metaOut));
+
+        this.dependencyGraph[absolutePath] = imports;
+        this.compiledModules[absolutePath] = Io.getAbsolutePath(cachePath);
+
+        print("✅ Biên dịch xong, tạo file cache mới: " + cachePath);
+
+        let dependents = this._gatherDependents(absolutePath, null);
+        for (d in dependents) {
+            if (!this.compiledModules[d]) {
+                let dd = _getDirectoryPath(d);
+                this._compileFile(d, dd);
+            }
+        }
+
+        return Io.getAbsolutePath(cachePath);
+    }
+
+    fn _createBundle(entryPath) {
+        let absEntry = this._resolvePath(entryPath, ".");
+        let visited = {};
+        let stack = [absEntry];
+        let caches = [];
+
+        while (stack.length > 0) {
+            let cur = stack.pop();
+            if (!cur || visited[cur]) continue;
+            visited[cur] = true;
+
+            let c = this.compiledModules[cur];
+            if (c) caches.push(c);
+
+            let imps = this.dependencyGraph[cur] || [];
+            for (let j = 0; j < imps.length; ++j) {
+                stack.push(imps[j]);
+            }
+        }
+
+        caches.sort();
+
+        let bundleText = "";
+        for (let k = 0; k < caches.length; ++k) {
+            bundleText += Io.read(caches[k]) + "\n";
+        }
+
+        let outPath = this.options.out || "bundle.meowb";
+        Io.write(outPath, bundleText);
+        print("📦 Tạo bundle: " + outPath);
+        return Io.getAbsolutePath(outPath);
+    }
+
+}

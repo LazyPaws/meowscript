@@ -1,0 +1,475 @@
+import { isalpha, isdigit, isxdigit, isalnum, isspace } from "./checkType.meow";
+import { Token, TokenType } from "./token.meow";
+
+export class Lexer {
+    fn init(source) {
+        this.src = source;
+        this.pos = 0;
+        this.line = 1;
+        this.col = 1;
+        this.currChar = this.src.size() == 0 ? '\0' : this.src[0];
+        this.filename = "<unknown>";
+        this.isInTemplateMode = false;
+        this.isInExpression = false;
+
+        this.Token = Token;
+        this.TokenType = TokenType;
+
+        this.keywords = {
+            "let": this.TokenType.KEYWORD_LET,
+            "const": this.TokenType.KEYWORD_CONST,
+            "while": this.TokenType.KEYWORD_WHILE,
+            "for": this.TokenType.KEYWORD_FOR,
+            "if": this.TokenType.KEYWORD_IF,
+            "else": this.TokenType.KEYWORD_ELSE,
+            "return": this.TokenType.KEYWORD_RETURN,
+            "break": this.TokenType.KEYWORD_BREAK,
+            "continue": this.TokenType.KEYWORD_CONTINUE,
+            "function": this.TokenType.KEYWORD_FUNCTION,
+            "fn": this.TokenType.KEYWORD_FUNCTION,
+            "null": this.TokenType.KEYWORD_NULL,
+
+            "class": this.TokenType.KEYWORD_CLASS,
+            "this": this.TokenType.KEYWORD_THIS,
+            "super": this.TokenType.KEYWORD_SUPER,
+            "new": this.TokenType.KEYWORD_NEW,
+            "static": this.TokenType.KEYWORD_STATIC,
+            "throw": this.TokenType.KEYWORD_THROW,
+            "import": this.TokenType.KEYWORD_IMPORT,
+            "export": this.TokenType.KEYWORD_EXPORT,
+            "as": this.TokenType.KEYWORD_AS,
+            "from": this.TokenType.KEYWORD_FROM,
+            "try": this.TokenType.KEYWORD_TRY,
+            "catch": this.TokenType.KEYWORD_CATCH,
+
+            "switch": this.TokenType.KEYWORD_SWITCH,
+            "case": this.TokenType.KEYWORD_CASE,
+            "default": this.TokenType.KEYWORD_DEFAULT,
+            
+            "do": this.TokenType.KEYWORD_DO,
+            "in": this.TokenType.KEYWORD_IN,
+
+            "log": this.TokenType.KEYWORD_LOG,
+
+            "true": this.TokenType.BOOLEAN,
+            "false": this.TokenType.BOOLEAN
+        };
+        this.symbols = {
+
+            "+": this.TokenType.OP_PLUS,
+            "-": this.TokenType.OP_MINUS,
+            "*": this.TokenType.OP_MULTIPLY,
+            "/": this.TokenType.OP_DIVIDE,
+            "%": this.TokenType.OP_MODULO,
+
+            "&": this.TokenType.OP_BIT_AND,
+            "|": this.TokenType.OP_BIT_OR,
+            "^": this.TokenType.OP_BIT_XOR,
+            "~": this.TokenType.OP_BIT_NOT,
+            "<<": this.TokenType.OP_LSHIFT,
+            ">>": this.TokenType.OP_RSHIFT,
+
+            "==": this.TokenType.OP_EQ,
+            "!=": this.TokenType.OP_NEQ,
+            "<": this.TokenType.OP_LT,
+            ">": this.TokenType.OP_GT,
+            "<=": this.TokenType.OP_LE,
+            ">=": this.TokenType.OP_GE,
+
+            "&&": this.TokenType.OP_LOGICAL_AND,
+            "||": this.TokenType.OP_LOGICAL_OR,
+            "!": this.TokenType.OP_LOGICAL_NOT,
+
+            "=": this.TokenType.OP_ASSIGN,
+
+            "+=": this.TokenType.OP_PLUS_ASSIGN,
+            "-=": this.TokenType.OP_MINUS_ASSIGN,
+            "*=": this.TokenType.OP_MULTIPLY_ASSIGN,
+            "/=": this.TokenType.OP_DIVIDE_ASSIGN,
+            "%=": this.TokenType.OP_MODULO_ASSIGN,
+            "**=": this.TokenType.OP_EXPONENT_ASSIGN,
+
+            "&=": this.TokenType.OP_AND_ASSIGN,
+            "|=": this.TokenType.OP_OR_ASSIGN,
+            "^=": this.TokenType.OP_XOR_ASSIGN,
+            "~=": this.TokenType.OP_NOT_ASSIGN,
+            "<<=": this.TokenType.OP_LSHIFT_ASSIGN,
+            ">>=": this.TokenType.OP_RSHIFT_ASSIGN,
+
+            "++": this.TokenType.OP_INCREMENT,
+            "--": this.TokenType.OP_DECREMENT,
+
+            "...": this.TokenType.OP_ELLIPSIS,
+            "??": this.TokenType.OP_NULLISH,
+            "**": this.TokenType.OP_EXPONENT,
+
+            ";": this.TokenType.PUNCT_SEMICOLON,
+            ":": this.TokenType.PUNCT_COLON,
+            ",": this.TokenType.PUNCT_COMMA,
+            "(": this.TokenType.PUNCT_LPAREN,
+            ")": this.TokenType.PUNCT_RPAREN,
+            "{": this.TokenType.PUNCT_LBRACE,
+            "}": this.TokenType.PUNCT_RBRACE,
+            "[": this.TokenType.PUNCT_LBRACKET,
+            "]": this.TokenType.PUNCT_RBRACKET,
+            ".": this.TokenType.PUNCT_DOT,
+            "?": this.TokenType.PUNCT_QUESTION,
+
+            "`": this.TokenType.PUNCT_BACKTICK,
+            "%{": this.TokenType.PUNCT_PERCENT_LBRACE
+        };
+    }
+
+    fn reset() {
+        this.pos = 0;
+        this.line = 1;
+        this.col = 1;
+        this.currChar = this.src.size() == 0 ? '\0' : this.src[0];
+        this.filename = "<unknown>";
+        this.isInTemplateMode = false;
+        this.isInExpression = false;
+    }
+
+    fn advance() {
+        if (this.currChar == '\n') {
+            ++this.line;
+            this.col = 1;
+        } else {
+            ++this.col;
+        }
+        ++this.pos;
+        this.currChar = this.pos < this.src.size() ? this.src[this.pos] : '\0';
+    }
+
+
+
+
+    fn peek() {
+        let next = this.pos + 1;
+        return next < this.src.size() ? this.src[next] : '\0';
+    }
+
+    fn seeNext(range) {
+        let next = this.pos + (range ? range : 1);
+        return next < this.src.size() ? this.src[next] : '\0';
+    }
+
+    fn skipWhiteSpace() {
+        while (isspace(this.currChar) && this.currChar != "\0") {
+            this.advance();
+        }
+    }
+
+    fn skipLineComment() {
+        this.advance(); this.advance();
+        while (this.currChar != '\n' && this.currChar != '\0') {
+            this.advance();
+        }
+    }
+
+    fn skipBlockComment() {
+
+        this.advance(); this.advance();
+
+        while (!(this.currChar == '*' && this.peek() == '/') && this.currChar != '\0') {
+            this.advance();
+        }
+
+        if (this.currChar != '\0' && this.peek() != '\0') {
+            this.advance(); this.advance();
+        }
+    }
+
+    fn makeToken(type, lex, startLine, startCol) {
+        if (typeof(type) == "function") {
+            print(type());
+        }
+        return {
+            type: type,
+            lexeme: lex,
+            file: this.filename,
+            line: startLine,
+            col: startCol
+        };
+    }
+
+    fn identifier(startLine, startCol) {
+        let lex = "";
+        while (isalnum(this.currChar) || this.currChar == '_') {
+            lex += this.currChar;
+            this.advance();
+        }
+
+        let keyword = this.keywords[lex];
+        if (keyword != null && (typeof(keyword) == typeof(this.TokenType._TOTAL_TOKENS))) {
+            return this.makeToken(keyword, lex, startLine, startCol);
+        }
+        return this.makeToken(this.TokenType.IDENTIFIER, lex, startLine, startCol);
+    }
+
+    fn number(startLine, startCol) { 
+        let lex = "";
+        let isReal = false;
+
+        if (this.currChar == '0') {
+            lex += this.currChar;
+            this.advance();
+
+            if (this.currChar == 'x' || this.currChar == 'X') {
+                lex += this.currChar;
+                this.advance();
+                while (isxdigit(this.currChar) || this.currChar == '_') {
+                    if (this.currChar != '_') lex += this.currChar;
+                    this.advance();
+                }
+                return this.makeToken(this.TokenType.INTEGER, lex, startLine, startCol);
+            }
+            else if (this.currChar == 'b' || this.currChar == 'B') {
+                lex += this.currChar;
+                this.advance();
+                while (this.currChar == '0' || this.currChar == '1' || this.currChar == '_') {
+                    if (this.currChar != '_') lex += this.currChar;
+                    this.advance();
+                }
+                return this.makeToken(this.TokenType.INTEGER, lex, startLine, startCol);
+            }
+            else if (this.currChar == 'o' || this.currChar == 'O') {
+                lex += this.currChar;
+                this.advance();
+                while ((this.currChar >= '0' && this.currChar <= '7') || this.currChar == '_') {
+                    if (this.currChar != '_') lex += this.currChar;
+                    this.advance();
+                }
+                return this.makeToken(this.TokenType.INTEGER, lex, startLine, startCol);
+            }
+        }
+
+        while (isdigit(this.currChar) || this.currChar == '_' || this.currChar == '.') {
+            if (this.currChar == '.') {
+                if (isReal) break;
+                isReal = true;
+                if (!isdigit(this.peek())) break;
+            }
+
+            if (this.currChar != '_') lex += this.currChar;
+            this.advance();
+        }
+
+        if (this.currChar == 'e' || this.currChar == 'E') {
+            isReal = true;
+            lex += this.currChar;
+            this.advance();
+            if (this.currChar == '+' || this.currChar == '-') {
+                lex += this.currChar;
+                this.advance();
+            }
+            while (isdigit(this.currChar) || this.currChar == '_') {
+                if (this.currChar != '_') lex += this.currChar;
+                this.advance();
+            }
+        }
+
+        return this.makeToken(isReal ? this.TokenType.REAL : this.TokenType.INTEGER, lex, startLine, startCol);
+    }
+
+    fn stringLiteral(delimiter, startLine, startCol) {
+        this.advance();
+
+        let lex = "";
+
+        while (this.currChar != delimiter && this.currChar != '\0') {
+            if (this.currChar == '\\') {
+                this.advance();
+                switch (this.currChar) {
+                    case '\\': lex += '\\'; break;
+                    case '"': lex += (delimiter == '"') ? "\"" : "\\\""; break;
+                    case '\'': lex += (delimiter == '\'') ? "'" : "\\'"; break;
+                    case 'n': lex += '\n'; break;
+                    case 't': lex += '\t'; break;
+                    case 'r': lex += '\r'; break;
+                    case '0': lex += '\0'; break;
+                    default:
+                        lex += '\\';
+                        lex += this.currChar;
+                }
+            } else {
+                lex += this.currChar;
+            }
+
+            this.advance();
+        }
+
+        if (this.currChar == delimiter) {
+            this.advance();
+        }
+
+        return this.makeToken(this.TokenType.STRING, lex, startLine, startCol);
+    }
+
+    fn check(s) {
+            return s != null && (typeof(s) == typeof(this.TokenType._TOTAL_TOKENS));
+        }
+
+    fn punctuator(startLine, startCol) {
+        let lex1 = this.currChar;
+        let lex2 = lex1 + this.seeNext(1);
+        let lex3 = lex2 + this.seeNext(2);
+
+        if (this.check(this.symbols[lex3])) {
+            this.advance(); this.advance(); this.advance();
+            return this.makeToken(this.symbols[lex3], lex3, startLine, startCol);
+        }
+        if (this.check(this.symbols[lex2])) {
+            this.advance(); this.advance();
+            return this.makeToken(this.symbols[lex2], lex2, startLine, startCol);
+        }
+        if (this.check(this.symbols[lex1])) {            
+            this.advance();
+            return this.makeToken(this.symbols[lex1], lex1, startLine, startCol);
+        }
+
+        this.advance();
+        return this.makeToken(this.TokenType.UNKNOWN, lex1, startLine, startCol);
+    }
+
+    fn templateStringLiteral(startLine, startCol) {
+        let lex = "";
+        while (this.currChar != '`' && this.currChar != '\0' && !(this.currChar == '%' && this.peek() == '{')) {
+            if (this.currChar == '\\') {
+                this.advance();
+                switch (this.currChar) {
+                    case '\\': lex += '\\'; break;
+                    case '`': lex += '`'; break;
+                    case 'n': lex += '\n'; break;
+                    case 't': lex += '\t'; break;
+                    case 'r': lex += '\r'; break;
+                    case '0': lex += '\0'; break;
+                    default:
+                        lex += '\\';
+                        lex += this.currChar;
+                }
+            } else {
+                lex += this.currChar;
+            }
+
+            this.advance();
+        }
+        return this.makeToken(this.TokenType.STRING, lex, startLine, startCol);
+    }
+
+    fn rawStringLiteral(delimiter, startLine, startCol) {
+        let lex = "";
+        this.advance();
+        while (this.currChar != delimiter && this.currChar != '\0') {
+            lex += this.currChar;
+            this.advance();
+        }
+        if (this.currChar == delimiter) {
+            this.advance();
+        }
+        return this.makeToken(this.TokenType.STRING, lex, startLine, startCol);
+    }
+
+    fn nextToken() {
+        let startLine;
+        let startCol;
+        let token = null;
+
+        if (!this.isInTemplateMode) {
+            this.skipWhiteSpace();
+        }
+
+        startLine = this.line;
+        startCol = this.col;
+
+        if (this.isInExpression && this.currChar == '}') {
+            this.isInTemplateMode = true;
+            this.isInExpression = false;
+            token = this.makeToken(this.TokenType.PUNCT_RBRACE, "}", startLine, startCol);
+            this.advance();
+        } else if (this.isInTemplateMode) {
+
+            if (this.currChar == '`') {
+                this.isInTemplateMode = false;
+                token = this.makeToken(this.TokenType.PUNCT_BACKTICK, "`", startLine, startCol);
+                this.advance();
+            } else if (this.currChar == '%' && this.peek() == '{') {
+                this.isInTemplateMode = false;
+                this.isInExpression = true;
+                this.advance(); this.advance();
+                token = this.makeToken(this.TokenType.PUNCT_PERCENT_LBRACE, "%{", startLine, startCol);
+            } else {
+                token = this.templateStringLiteral(startLine, startCol);
+            }
+        } else {
+
+            if (this.currChar == '\0') {
+                token = this.makeToken(this.TokenType.END_OF_FILE, "", startLine, startCol);
+            } else if ((this.currChar == 'r' || this.currChar == 'R') && (this.peek() == '"' || this.peek() == '\'')) {
+
+                this.advance();
+                token = this.rawStringLiteral(this.currChar, startLine, startCol);
+            } else if (isalpha(this.currChar) || this.currChar == '_') {
+                token = this.identifier(startLine, startCol);
+            } else if (isdigit(this.currChar)) {
+                token = this.number(startLine, startCol);
+            } else {
+                switch (this.currChar) {
+                    case '`':
+                        this.isInTemplateMode = true;
+                        token = this.makeToken(this.TokenType.PUNCT_BACKTICK, "`", startLine, startCol);
+                        this.advance();
+                        break;
+                    case '"':
+                        token = this.stringLiteral('"', startLine, startCol);
+                        break;
+                    case '\'':
+                        token = this.stringLiteral('\'', startLine, startCol);
+                        break;
+                    case '/':
+                        if (this.peek() == '/') {
+                            this.skipLineComment();
+
+                            token = this.nextToken();
+                        } else if (this.peek() == '*') {
+                            this.skipBlockComment();
+                            token = this.nextToken();
+                        } else {
+                            token = this.punctuator(startLine, startCol);
+                        }
+                        break;
+                    default:
+                        token = this.punctuator(startLine, startCol);
+                }
+            }
+        }
+
+        if (token == null) {
+            token = this.makeToken(this.TokenType.UNKNOWN, "", startLine, startCol);
+        }
+
+        return token;
+    }
+
+    fn tokenize() {
+        this.isInTemplateMode = false;
+        this.isInExpression = false;
+        this.pendingTemplateExpr = false;
+        let tokens = [];
+        while (true) {
+            let token = this.nextToken();
+
+
+            tokens.push(token);
+
+            if (typeof(token.type) == "function") {
+
+                print(token);
+                break;
+            }
+            if (token.type == this.TokenType.END_OF_FILE) break;
+        }
+
+        return tokens;
+    }
+}

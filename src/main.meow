@@ -1,0 +1,64 @@
+import { Compiler } from "./backend/compiler.meow";
+import * as System from "system";
+import * as Io from "io";
+import * as String from "string";
+
+let argv = System.argv();
+
+if (argv.size() <= 2) {
+    print("Usage: meow-alpha.exe <launcher-script> <entry.meow> [flags] [-- runtime-args]");
+    print("Flags: --nocache --out <path> --bundle --force --run --vm <vm-path>");
+    System.exit(42);
+}
+
+let startIndex = 2;
+let entrypoint = null;
+let isNoCache = false;
+let options = {};
+let runtimeArgs = [];
+let shouldRun = false;
+
+for (let i = startIndex; i < argv.size(); ++i) {
+    let a = argv[i];
+    if (a == "--") {
+        runtimeArgs = argv.slice(i + 1);
+        break;
+    }
+    if (entrypoint == null && !(a.startsWith("-"))) {
+        entrypoint = a;
+        continue;
+    }
+    if (a == "--nocache") isNoCache = true;
+    else if (a == "--bundle") options.bundle = true;
+    else if (a == "--force") options.force = true;
+    else if (a == "--out" && i + 1 < argv.size()) { options.out = argv[i + 1]; ++i; }
+    else if (a == "--vm" && i + 1 < argv.size()) { options.vm = argv[i + 1]; ++i; }
+    else if (a == "--run") shouldRun = true;
+    else {
+
+    }
+}
+
+if (entrypoint == null) {
+    print("Error: Không tìm thấy entrypoint (.meow).");
+    System.exit(43);
+}
+
+print("--- Bắt đầu quy trình biên dịch AOT ---");
+let compiler = Compiler(isNoCache, options);
+let entryCachePath = compiler.compileProject(entrypoint);
+print("✅ Quy trình biên dịch hoàn tất!");
+print("✅ Đã lưu file cache / bundle vào: " + entryCachePath);
+
+if (shouldRun) {
+    let vmPath = options.vm || "./bin/meowvm";
+    let cmd = vmPath + " " + entryCachePath;
+    if (runtimeArgs.length > 0) {
+        cmd = cmd + " " + String.join(" ", runtimeArgs);
+    }
+    print("Chạy: " + cmd);
+    let code = System.system(cmd);
+    print("\n✅ Hoàn thành chạy (exit code: " + code + ")");
+} else {
+    print("Để chạy VM, thêm cờ --run. Ví dụ: meow-alpha main.meow frontend/Lexer.meow --run -- --arg");
+}
