@@ -1,25 +1,25 @@
-// fn makeCounter() {
-//     let i = 0;
+fn makeCounter() {
+    let i = 0;
 
-//     fn count() {
-//         i = i + 1;
-//         return i;
-//     }
+    fn count() {
+        i = i + 1;
+        return i;
+    }
     
-//     return count;
-// }
+    return count;
+}
 
-// print("Tạo counter...");
-// let counter = makeCounter();
+print("Tạo counter...");
+let counter = makeCounter();
 
-// print(counter());
-// print(counter());
-// print(counter());
+print(counter());
+print(counter());
+print(counter());
 
-// let counter2 = makeCounter();
-// print(counter2());
-// print(counter());
+let counter2 = makeCounter();
+print(counter2());
+print(counter());
 
-// print("Test hoàn thành!");
+print("Test hoàn thành!");
 
-print("Hello World in self-hosted MeowScript");
+// print("Hello World in self-hosted MeowScript");

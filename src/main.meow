@@ -45,21 +45,21 @@ if (entrypoint == null) {
     System.exit(43);
 }
 
-print("--- Bắt đầu quy trình biên dịch AOT ---");
+// print("--- Bắt đầu quy trình biên dịch AOT ---");
 let compiler = Compiler(isNoCache, options);
 let entryCachePath = compiler.compileProject(entrypoint);
-print("✅ Quy trình biên dịch hoàn tất!");
-print("✅ Đã lưu file cache / bundle vào: " + entryCachePath);
+// print("✅ Quy trình biên dịch hoàn tất!");
+// print("✅ Đã lưu file cache / bundle vào: " + entryCachePath);
 
 if (shouldRun) {
-    let vmPath = options.vm || "./bin/meowvm";
+    let vmPath = options.vm || "/home/lazycat/Projects/MeowScript/meow-vm/output/meow-vm";
     let cmd = vmPath + " " + entryCachePath;
     if (runtimeArgs.length > 0) {
         cmd = cmd + " " + String.join(" ", runtimeArgs);
     }
     print("Chạy: " + cmd);
-    let code = System.system(cmd);
+    let code = System.exec(cmd);
     print("\n✅ Hoàn thành chạy (exit code: " + code + ")");
 } else {
-    print("Để chạy VM, thêm cờ --run. Ví dụ: meow-alpha main.meow frontend/Lexer.meow --run -- --arg");
+    // print("Để chạy VM, thêm cờ --run. Ví dụ: meow-alpha main.meow frontend/Lexer.meow --run -- --arg");
 }

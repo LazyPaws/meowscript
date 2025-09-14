@@ -44,7 +44,7 @@ export class Compiler {
         }
         if (this.options.out) {
             Io.copyFile(entryCache, this.options.out);
-            print("✅ Viết output vào: " + this.options.out);
+            // print("✅ Viết output vào: " + this.options.out);
             return Io.getAbsolutePath(this.options.out);
         }
         return entryCache;
@@ -134,7 +134,7 @@ export class Compiler {
             }
 
             this.compiledModules[absolutePath] = Io.getAbsolutePath(cachePath);
-            print("♻️ Đã dùng lại cache cho: " + absolutePath);
+            // print("♻️ Đã dùng lại cache cho: " + absolutePath);
             return Io.getAbsolutePath(cachePath);
         }
 
@@ -187,7 +187,7 @@ export class Compiler {
         this.dependencyGraph[absolutePath] = imports;
         this.compiledModules[absolutePath] = Io.getAbsolutePath(cachePath);
 
-        print("✅ Biên dịch xong, tạo file cache mới: " + cachePath);
+        // print("✅ Biên dịch xong, tạo file cache mới: " + cachePath);
 
         let dependents = this._gatherDependents(absolutePath, null);
         for (d in dependents) {
