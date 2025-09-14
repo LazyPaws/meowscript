@@ -55,7 +55,6 @@ export class Lexer {
             "false": this.TokenType.BOOLEAN
         };
         this.symbols = {
-
             "+": this.TokenType.OP_PLUS,
             "-": this.TokenType.OP_MINUS,
             "*": this.TokenType.OP_MULTIPLY,
@@ -140,9 +139,6 @@ export class Lexer {
         ++this.pos;
         this.currChar = this.pos < this.src.size() ? this.src[this.pos] : '\0';
     }
-
-
-
 
     fn peek() {
         let next = this.pos + 1;

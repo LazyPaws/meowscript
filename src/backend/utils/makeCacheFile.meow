@@ -1,58 +1,70 @@
 import * as Io from "io";
 
-fn sanitizeBasename(name) {
-    let out = "";
-    for (let i = 0; i < name.length; ++i) {
-        let c = name[i];
-        if ((c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || (c >= "0" && c <= "9") || c == "." || c == "_" || c == "-") {
-            out += c;
-        } else {
-            out += "_";
-        }
-    }
-    return out;
-}
+// fn sanitizeBasename(name) {
+//     let out = "";
+//     for (let i = 0; i < name.length; ++i) {
+//         let c = name[i];
+//         if ((c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || (c >= "0" && c <= "9") || c == "." || c == "_" || c == "-") {
+//             out += c;
+//         } else {
+//             out += "_";
+//         }
+//     }
+//     return out;
+// }
 
 
-fn toHex8(n) {
-    if (n < 0) { n = -n; }
-    let hexDigits = "0123456789abcdef";
-    let out = "";
-    for (let i = 0; i < 8; ++i) {
-        let nibble = n % 16;
-        out = hexDigits[nibble] + out;
-        n = int(n / 16) | 0;
-    }
-    return out;
-}
+// fn toHex8(n) {
+//     if (n < 0) { n = -n; }
+//     let hexDigits = "0123456789abcdef";
+//     let out = "";
+//     for (let i = 0; i < 8; ++i) {
+//         let nibble = n % 16;
+//         out = hexDigits[nibble] + out;
+//         n = int(n / 16) | 0;
+//     }
+//     return out;
+// }
 
 
-fn contentHash32(s) {
-    if (s == null) { return 0; }
-    let MOD = 2147483647;
-    let h = 5381;
-    for (let i = 0; i < s.length; ++i) {
+// fn contentHash32(s) {
+//     if (s == null) { return 0; }
+//     let MOD = 2147483647;
+//     let h = 5381;
+//     for (let i = 0; i < s.length; ++i) {
 
-        h = ( (h * 131) % MOD + ord(s[i]) ) % MOD;
-    }
+//         h = ( (h * 131) % MOD + ord(s[i]) ) % MOD;
+//     }
 
-    if (h < 0) { h += MOD; }
-    return h;
-}
+//     if (h < 0) { h += MOD; }
+//     return h;
+// }
+
+// export fn makeCacheFile(sourcePath, cacheDir) {
+//     let basename = Io.getFileName(sourcePath);
+
+//     let content = Io.read(sourcePath);
+//     let digestInt = contentHash32(content);
+//     let digest = toHex8(digestInt);
+
+//     let safeBase = sanitizeBasename(basename);
+
+//     if (!Io.fileExists(cacheDir)) {
+//         Io.createDir(cacheDir);
+//     }
+
+//     let cacheName = safeBase + "_" + digest + ".meowb";
+//     return cacheDir + "/" + cacheName;
+// }
+
 
 export fn makeCacheFile(sourcePath, cacheDir) {
-    let basename = Io.getFileName(sourcePath);
-
-    let content = Io.read(sourcePath);
-    let digestInt = contentHash32(content);
-    let digest = toHex8(digestInt);
-
-    let safeBase = sanitizeBasename(basename);
+    let basename = Io.getFileStem(sourcePath);
 
     if (!Io.fileExists(cacheDir)) {
         Io.createDir(cacheDir);
     }
 
-    let cacheName = safeBase + "_" + digest + ".meowb";
+    let cacheName = basename + ".meowb";
     return cacheDir + "/" + cacheName;
 }

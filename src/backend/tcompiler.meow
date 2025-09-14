@@ -73,7 +73,7 @@ export class Compiler {
 }
 
 let compiler = Compiler(false);
-let path = compiler.compileProject("/home/lazycat/Projects/MeowScript/meowscript/tests/test_closure.meow");
+let path = compiler.compileProject("/home/lazycat/Projects/MeowScript/meowscript/tests/test_function.meow");
 print("\nĐường dẫn file cache đầu ra:");
 print(path);
 

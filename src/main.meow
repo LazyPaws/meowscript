@@ -33,6 +33,7 @@ for (let i = startIndex; i < argv.size(); ++i) {
     else if (a == "--force") options.force = true;
     else if (a == "--out" && i + 1 < argv.size()) { options.out = argv[i + 1]; ++i; }
     else if (a == "--vm" && i + 1 < argv.size()) { options.vm = argv[i + 1]; ++i; }
+    else if (a == "--buildDir" && i + 1 < argv.size()) { options.buildDir = argv[i + 1]; ++i; }
     else if (a == "--run") shouldRun = true;
     else {
 

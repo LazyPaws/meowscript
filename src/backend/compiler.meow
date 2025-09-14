@@ -116,7 +116,7 @@ export class Compiler {
 
         if (this.compiledModules[absolutePath]) return this.compiledModules[absolutePath];
 
-        let cachePath = makeCacheFile(absolutePath, "build/cache");
+        let cachePath = makeCacheFile(absolutePath, this.options.buildDir || "build");
         let metaPath = cachePath + ".meta";
 
         if (this._isCacheValid(absolutePath, cachePath)) {
