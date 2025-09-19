@@ -189,3 +189,4 @@ Tác giả: `LazyPaws` — (GitHub: `github.com/LazyPaws`).
 
 * Tác giả: LazyPaws (hiện đang là học sinh lớp 9)
 * GitHub: https://github.com/LazyPaws
+* Note: Tác giả là người cầu toàn nên thấy meow-alpha, meow-vm vẫn chưa tối ưu nên hơi khó chịu nên chưa public
