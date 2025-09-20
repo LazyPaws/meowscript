@@ -1,8 +1,8 @@
-# MeowScript 🐾
+# Trạng Mèo (tên trước đây là MeowScript) 🐾
 
 ![Made in Vietnam](https://img.shields.io/badge/made%20in-Vietnam-ff0000) ![Self-hosted](https://img.shields.io/badge/self--hosted-100%25-brightgreen) ![Topics](https://img.shields.io/badge/topics-programming--language%20%7C%20compiler%20%7C%20vm-lightgrey)
 
-> **Tagline:** *MeowScript — ngôn ngữ mèo tự nuôi: đủ mạnh để viết chính mình.*
+> **Tagline:** *Trạng Mèo — ngôn ngữ mèo tự nuôi: đủ mạnh để viết chính mình.*
 
 ---
 
@@ -10,9 +10,9 @@
 
 **Ngôn ngữ lập trình** là cách con người mô tả ý tưởng bằng cú pháp chặt chẽ để máy tính hiểu và thực thi. Thay vì làm việc trực tiếp với dãy số 0–1, lập trình viên viết bằng ngôn ngữ bậc cao hơn; compiler và VM sẽ dịch xuống dạng máy hiểu được.
 
-**Self-hosting** nghĩa là ngôn ngữ đủ trưởng thành để viết compiler (và thường là toolchain) của chính nó. Với MeowScript, toàn bộ compiler và VM đều được viết bằng MeowScript — vừa là bài toán kỹ thuật (vòng lặp gà-và-trứng), vừa là bằng chứng rằng ngôn ngữ đủ mạnh để “tự nuôi sống mình”.
+**Self-hosting** nghĩa là ngôn ngữ đủ trưởng thành để viết compiler (và thường là toolchain) của chính nó. Với Trạng Mèo, toàn bộ compiler và VM đều được viết bằng Trạng Mèo — vừa là bài toán kỹ thuật (vòng lặp gà-và-trứng), vừa là bằng chứng rằng ngôn ngữ đủ mạnh để “tự nuôi sống mình”.
 
-MeowScript là một **ngôn ngữ lập trình self-hosting**: compiler và VM đều bằng `.meow`. Dự án đang được **refactor** để tối ưu hóa **register-based VM** và **bootstrap-interpreter (`meow-alpha`)** — mục tiêu: khi đã chạy thì phải nhanh hơn, mạnh hơn.
+Trạng Mèo là một **ngôn ngữ lập trình self-hosting**: compiler và VM đều bằng `.meow`. Dự án đang được **refactor** để tối ưu hóa **register-based VM** và **bootstrap-interpreter (`meow-alpha`)** — mục tiêu: khi đã chạy thì phải nhanh hơn, mạnh hơn.
 
 > **Lưu ý:** `meow-alpha` nằm ở repo riêng `github.com/LazyPaws/meow-alpha` (hiện **private**) — README này mô tả workflow và cách bạn sẽ dùng `meow-alpha` khi có access/binary.
 
@@ -31,7 +31,7 @@ MeowScript là một **ngôn ngữ lập trình self-hosting**: compiler và VM 
 
 **Ý tưởng chung:**
 
-1. `meow-alpha` (bootstrap interpreter) chạy `src/main.meow` — đây là compiler viết bằng MeowScript — và dùng compiler đó để **dịch** file `.meow` mục tiêu thành `.meowb` (Meow bytecode).
+1. `meow-alpha` (bootstrap interpreter) chạy `src/main.meow` — đây là compiler viết bằng Trạng Mèo — và dùng compiler đó để **dịch** file `.meow` mục tiêu thành `.meowb` (Meow bytecode).
 2. `meow-vm` chạy trực tiếp file `.meowb` (nhanh hơn vì là bytecode).
 
 ### Sơ đồ pipeline (ASCII)
@@ -60,7 +60,7 @@ meow-alpha src/main.meow tests/test.meow --run
 # Kết quả: build/test.meowb → meow-vm chạy build/test.meowb
 ```
 
-* Self-hosting (dùng compiler MeowScript để dịch chính nó):
+* Self-hosting (dùng compiler Trạng Mèo để dịch chính nó):
 
 ```bash
 meow-alpha src/main.meow src/main.meow
@@ -82,7 +82,7 @@ meow-vm build/main.meowb src/main.meow
 
 ## Khi `meow-alpha` private — cách thử ngay
 
-1. **Clone meowscript repo** như bình thường.
+1. **Clone Trạng Mèo repo** như bình thường.
 2. Nếu bạn có access tới `meow-alpha` (private):
 
 ```bash
@@ -101,10 +101,10 @@ git submodule add git@github.com:LazyPaws/meow-alpha.git third_party/meow-alpha
 
 ## Tích hợp CI / Releases (gợi ý cross-repo)
 
-Một số lựa chọn để đồng bộ `meowscript` và `meow-alpha`:
+Một số lựa chọn để đồng bộ `Trạng Mèo` và `meow-alpha`:
 
 * **Git submodule:** dễ dev cục bộ; hoạt động nếu SSH key có quyền truy cập.
-* **Release artifacts:** `meow-alpha` publish binary trong GitHub Releases; `meowscript` CI tải artifact.
+* **Release artifacts:** `meow-alpha` publish binary trong GitHub Releases; `Trạng Mèo` CI tải artifact.
 * **GitHub Actions + permissions:** dùng `actions/checkout@v4` với token có `contents: read` để checkout repo private trong workflow.
 * **Repository dispatch / workflow triggers:** trigger cross-repo khi `meow-alpha` build xong.
 
@@ -160,7 +160,7 @@ Một số lựa chọn để đồng bộ `meowscript` và `meow-alpha`:
 
 * Hoàn thiện refactor `meow-alpha` rồi public repo hoặc publish binary release.
 * Tối ưu register allocator, instruction combining, và inline caches cho VM.
-* Thêm CI để build `meow-alpha` và upload release artifact; `meowscript` CI tải artifact để chạy test.
+* Thêm CI để build `meow-alpha` và upload release artifact; `Trạng Mèo` CI tải artifact để chạy test.
 * Thêm test coverage & benchmarks để theo dõi hiệu năng (micro-benchmarks cho instruction dispatch, inline cache hits, v.v.).
 
 ---
@@ -187,6 +187,7 @@ Tác giả: `LazyPaws` — (GitHub: `github.com/LazyPaws`).
 
 ## Tác giả
 
-* Tác giả: LazyPaws (hiện đang là học sinh lớp 9)
+* Tác giả: LazyPaws hiện đang là học sinh lớp 9
 * GitHub: https://github.com/LazyPaws
-* Note: Tác giả là người cầu toàn nên thấy meow-alpha, meow-vm vẫn chưa tối ưu nên hơi khó chịu nên chưa public
+* Note: Tác giả là người cầu toàn nên thấy meow-alpha, meow-vm vẫn chưa được tối ưu nên hơi khó chịu nên chưa public
+
