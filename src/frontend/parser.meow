@@ -1,5 +1,5 @@
 import { TokenType } from "./token.meow";
-import { Program, LetStatement, FunctionLiteral, ClassStatement, IfStatement, WhileStatement, ForStatement, ReturnStatement, BreakStatement, ContinueStatement, BlockStatement, ThrowStatement, TryStatement, ImportStatement, ExportStatement, LogStatement, DoWhileStatement, SwitchStatement, ForInStatement, ExpressionStatement, IntegerLiteral, RealLiteral, StringLiteral, BooleanLiteral, NullLiteral, ArrayLiteral, ObjectLiteral, TemplateLiteral, Identifier, BinaryExpression, UnaryExpression, CallExpression, IndexExpression, AssignmentExpression, TernaryExpression, PropertyAccess, ThisExpression, NewExpression, SuperExpression, PrefixUpdateExpression, PostfixUpdateExpression, SpreadExpression, SwitchCase } from "./ast.meow";
+import { Program, LetStatement, FunctionStatement, FunctionLiteral, ClassStatement, IfStatement, WhileStatement, ForStatement, ReturnStatement, BreakStatement, ContinueStatement, BlockStatement, ThrowStatement, TryStatement, ImportStatement, ExportStatement, LogStatement, DoWhileStatement, SwitchStatement, ForInStatement, ExpressionStatement, IntegerLiteral, RealLiteral, StringLiteral, BooleanLiteral, NullLiteral, ArrayLiteral, ObjectLiteral, TemplateLiteral, Identifier, BinaryExpression, UnaryExpression, CallExpression, IndexExpression, AssignmentExpression, TernaryExpression, PropertyAccess, ThisExpression, NewExpression, SuperExpression, PrefixUpdateExpression, PostfixUpdateExpression, SpreadExpression, SwitchCase } from "./ast.meow";
 import { Diagnostic, Precedence } from "./diagnostic.meow";
 import * as System from "system";
 
@@ -64,6 +64,36 @@ export class Parser {
             return this.advance();
         }
         this.throwParseErr("[IN SELFHOSTED PARSER]: " + errMsg, this.peek());
+    }
+
+    fn consumeSemicolon(errMsg) {
+        if (this.match([TokenType.PUNCT_SEMICOLON])) return true;
+
+        let prev = this.previous();
+        let next = this.peek();
+
+        if (next && (next.type == TokenType.PUNCT_RBRACE || next.type == TokenType.END_OF_FILE)) {
+            return true;
+        }
+
+        let canEndStatement = {
+            [TokenType.IDENTIFIER]: true,
+            [TokenType.INTEGER]: true,
+            [TokenType.REAL]: true,
+            [TokenType.BOOLEAN]: true,
+            [TokenType.STRING]: true,
+            [TokenType.CHAR]: true,
+            [TokenType.PUNCT_RPAREN]: true,
+            [TokenType.PUNCT_RBRACKET]: true,
+            [TokenType.OP_INCREMENT]: true,
+            [TokenType.OP_DECREMENT]: true
+        };
+
+        if (prev.line != next.line && canEndStatement[prev.type]) {
+            return true;
+        }
+
+        this.throwParseErr(errMsg, next);
     }
 
     fn synchronize() {
@@ -156,7 +186,7 @@ export class Parser {
         let prefixToken = this.advance();
         let prefixRule = this.rules[prefixToken.type].prefix;
         if (!prefixRule) {
-            this.throwParseErr("Ở đây chắc chắn chắn cần một biểu thức. Nhưng hình như bạn thiếu rồi!", prefixToken);
+            this.throwParseErr("Biểu thức không xác định", prefixToken);
         }
         let left = prefixRule();
         while (precedence < this.rules[this.peek().type].precedence) {
@@ -189,7 +219,7 @@ export class Parser {
             case TokenType.KEYWORD_NULL:
                 return NullLiteral();
             default:
-                this.throwParseErr("Tôi chưa định nghĩa kiểu dữ liệu này, hay là bạn tự thêm nó à?", prevToken);
+                this.throwParseErr("Kiểu dữ liệu không xác định", prevToken);
         }
     }
 
@@ -206,7 +236,7 @@ export class Parser {
                 }
             } while (this.match([TokenType.PUNCT_COMMA]));
         }
-        this.consume(TokenType.PUNCT_RBRACKET, "Cần một dấu ngoặc vuông phải ']'");
+        this.consume(TokenType.PUNCT_RBRACKET, "Thiếu ']' khi tạo array");
         return ArrayLiteral(elements);
     }
 
@@ -222,7 +252,7 @@ export class Parser {
             let key;
             if (this.match([TokenType.PUNCT_LBRACKET])) {
                 key = this.expression();
-                this.consume(TokenType.PUNCT_RBRACKET, "Cần một dấu ngoặc vuông ']' sau key object");
+                this.consume(TokenType.PUNCT_RBRACKET, "Thiếu ']' khi dùng biểu thức làm key");
             } else {
                 let keyToken = this.peek();
                 if (this.match([TokenType.IDENTIFIER, TokenType.STRING])) {
@@ -232,17 +262,17 @@ export class Parser {
                 } else if (this.match([TokenType.BOOLEAN])) {
                     key = BooleanLiteral(keyToken.lexeme == "true");
                 } else {
-                    this.throwParseErr("Key của object không hợp lệ..", keyToken);
+                    this.throwParseErr("Key của object không hợp lệ", keyToken);
                 }
             }
-            this.consume(TokenType.PUNCT_COLON, "Cần một đấu hai chấm ':' sau key object");
+            this.consume(TokenType.PUNCT_COLON, "Cần một đấu hai chấm ':' sau key của object");
             let value = this.expression();
             properties.push({ key: key, value: value });
             if (!this.match([TokenType.PUNCT_COMMA])) {
                 break;
             }
         }
-        this.consume(TokenType.PUNCT_RBRACE, "Cần dấu ngoặc nhọn '}' trước khi kết thúc định nghĩa một object đấy!");
+        this.consume(TokenType.PUNCT_RBRACE, "Thiếu '}' khi tạo object");
         return ObjectLiteral(properties);
     }
 
@@ -254,10 +284,10 @@ export class Parser {
                 parts.push(StringLiteral(this.previous().lexeme));
             } else if (this.match([TokenType.PUNCT_PERCENT_LBRACE])) {
                 parts.push(this.expression());
-                this.consume(TokenType.PUNCT_RBRACE, "Cần dấu ngoặc nhọn đòng '}' sau biểu thức này");
+                this.consume(TokenType.PUNCT_RBRACE, "Thiếu '}' cú pháp chèn biểu thức");
             }
         }
-        this.consume(TokenType.PUNCT_BACKTICK, "Cần dấu backtick đóng '`' cho template");
+        this.consume(TokenType.PUNCT_BACKTICK, "Thiếu '`' cho khi tạo template");
         return TemplateLiteral(parts);
     }
 
@@ -279,7 +309,7 @@ export class Parser {
 
     fn grouping() {
         let expr = this.expression();
-        this.consume(TokenType.PUNCT_RPAREN, "Một dấu ngoặc đơn ')' là điều không thể thiếu sau biểu thức. Thêm vào đi nhá!");
+        this.consume(TokenType.PUNCT_RPAREN, "Thiếu ')' khi nhóm biểu thức");
         return expr;
     }
 
@@ -292,7 +322,7 @@ export class Parser {
         if (this.check(TokenType.PUNCT_LPAREN)) {
             return SuperExpression(true, null);
         }
-        this.consume(TokenType.PUNCT_DOT, "Sau super phải là một dấu chấm cho thuộc tính");
+        this.consume(TokenType.PUNCT_DOT, "Thiếu tên thuộc tính sau từ khóa 'super'");
         let propertyToken = this.consume(TokenType.IDENTIFIER, "Cần tên thuộc tính sau dấu chấm '.'");
         let property = Identifier(propertyToken.lexeme);
         return SuperExpression(false, property);
@@ -300,7 +330,7 @@ export class Parser {
 
     fn newExpr() {
         let token = this.previous();
-        let identToken = this.consume(TokenType.IDENTIFIER, "Cần tên hàm để gọi sau 'new'");
+        let identToken = this.consume(TokenType.IDENTIFIER, "Cần tên hàm để gọi sau từ khóa 'new'");
         if (!this.check(TokenType.PUNCT_LPAREN)) {
             let callExpr = CallExpression(Identifier(identToken.lexeme), []);
             return NewExpression(callExpr);
@@ -329,13 +359,13 @@ export class Parser {
         if (left.type == "Identifier" || left.type == "IndexExpression" || left.type == "PropertyAccess") {
             return AssignmentExpression(left, value);
         }
-        this.throwParseErr("Đối tượng được gán không hợp lệ!", op);
+        this.throwParseErr("Đối tượng được gán không hợp lệ", op);
     }
 
     fn compoundAssignment(left) {
         let op = this.previous();
         if (left.type != "Identifier" && left.type != "IndexExpression" && left.type != "PropertyAccess") {
-            this.throwParseErr("Đối tượng được gán không hợp lệ đâu! Thử cái khác đi bạn!", op);
+            this.throwParseErr("Đối tượng được gán không hợp lệ", op);
         }
         let rightValue = this.parsePrecedence(Precedence.ASSIGN - 1);
         let opType;
@@ -352,7 +382,7 @@ export class Parser {
             case TokenType.OP_LSHIFT_ASSIGN: opType = TokenType.OP_LSHIFT; break;
             case TokenType.OP_RSHIFT_ASSIGN: opType = TokenType.OP_RSHIFT; break;
             default:
-                this.throwParseErr("Ayya, toán tử gán này tôi chưa hỗ trợ. Hay là bạn bảo tôi bổ sung nhá!", op);
+                this.throwParseErr("Toán tử gán không xác định", op);
         }
 
         let leftCloned = left;
@@ -372,19 +402,19 @@ export class Parser {
                 }
             } while (this.match([TokenType.PUNCT_COMMA]));
         }
-        let closingParen = this.consume(TokenType.PUNCT_RPAREN, "Yo, gọi hàm mà quên dấu ngoặc đơn ')' à?");
+        let closingParen = this.consume(TokenType.PUNCT_RPAREN, "Thiếu dấu ')' khi gọi hàm");
         return CallExpression(left, args);
     }
 
     fn index(left) {
         let expr = this.expression();
-        let closingBracket = this.consume(TokenType.PUNCT_RBRACKET, "Thiếu luôn dấu ngoặc vuông ']' khi kết thúc truy cập. Hay thật!");
+        let closingBracket = this.consume(TokenType.PUNCT_RBRACKET, "Thiếu ']' khi truy cập chỉ số");
         return IndexExpression(left, expr);
     }
 
     fn access(left) {
         let token = this.previous();
-        let propertyToken = this.consume(TokenType.IDENTIFIER, "Cần tên thuộc tính sau dấu chấm '.'");
+        let propertyToken = this.consume(TokenType.IDENTIFIER, "Thiếu tên thuộc tính sau dấu '.'");
         let property = Identifier(propertyToken.lexeme);
         return PropertyAccess(left, property);
     }
@@ -392,7 +422,7 @@ export class Parser {
     fn ternary(left) {
         let token = this.previous();
         let thenBranch = this.expression();
-        this.consume(TokenType.PUNCT_COLON, "Sau nhánh 'then' thì cần dấu hai chấm ':' mà bạn!");
+        this.consume(TokenType.PUNCT_COLON, "Thiếu ':' sau nhánh 'then' của toán ba ngôi");
         let elseBranch = this.parsePrecedence(Precedence.TERNARY - 1);
         return TernaryExpression(left, thenBranch, elseBranch);
     }
@@ -402,7 +432,7 @@ export class Parser {
     }
 
     fn parseFunctionTail(token) {
-        this.consume(TokenType.PUNCT_LPAREN, "Này này, bạn quên dấu ngoặc đơn '(' để bắt đầu cho những tham số đấy nhá!");
+        this.consume(TokenType.PUNCT_LPAREN, "Thiếu '(' trước những tham số");
         let params = [];
         let restParam = null;
         if (!this.check(TokenType.PUNCT_RPAREN) && !this.isAtEnd()) {
@@ -411,10 +441,10 @@ export class Parser {
                     restParam = Identifier(this.consume(TokenType.IDENTIFIER, "Sau '...' phải là một tên biến!").lexeme);
                     break;
                 }
-                params.push(Identifier(this.consume(TokenType.IDENTIFIER, "Đây phải là tên tham số mà bạn!").lexeme));
+                params.push(Identifier(this.consume(TokenType.IDENTIFIER, "Đây không phải tên tham số").lexeme));
             } while (this.match([TokenType.PUNCT_COMMA]));
         }
-        this.consume(TokenType.PUNCT_RPAREN, "Thiếu luôn một dấu ngoặc đơn ')'. Tạch rồi");
+        this.consume(TokenType.PUNCT_RPAREN, "Thiếu dấu ')' để kết thúc những tham số");
         let body = this.declaration();
         return FunctionLiteral(params, body, restParam);
     }
@@ -458,7 +488,7 @@ export class Parser {
     }
 
     fn letDeclaration(token, isConstant) {
-        let identifier = Identifier(this.consume(TokenType.IDENTIFIER, "Expected identifier").lexeme);
+        let identifier = Identifier(this.consume(TokenType.IDENTIFIER, "Cần tên biến sau từ khóa 'let'").lexeme);
         let value = null;
 
         if (this.match([TokenType.OP_ASSIGN])) {
@@ -466,7 +496,7 @@ export class Parser {
             value = this.expression();
         }
 
-        this.consume(TokenType.PUNCT_SEMICOLON, "Thiếu dấu phẩy ';' sau một câu định nghĩa let!");
+        this.consumeSemicolon("Thiếu dấu phẩy ';'");
         return LetStatement(identifier, value, isConstant);
     }
 
@@ -478,12 +508,12 @@ export class Parser {
     }
 
     fn classDeclaration(token) {
-        let name = Identifier(this.consume(TokenType.IDENTIFIER, "Khi định nghĩa class thì chắc chắn là cần một cái tên!").lexeme);
+        let name = Identifier(this.consume(TokenType.IDENTIFIER, "Thiếu tên class sau từ khóa 'class'").lexeme);
         let superclass = null;
         if (this.match([TokenType.PUNCT_COLON])) {
-            superclass = Identifier(this.consume(TokenType.IDENTIFIER, "Bạn dùng dấu hai chấm ':' nhưng lại không ghi tên class cha ngay sau đấy!").lexeme);
+            superclass = Identifier(this.consume(TokenType.IDENTIFIER, "Thiếu tên class cha sau ':'").lexeme);
         }
-        this.consume(TokenType.PUNCT_LBRACE, "Class thì không phải if/else hay while đâu nên thêm dấu ngoặc nhọn '{' cho thân class đi!");
+        this.consume(TokenType.PUNCT_LBRACE, "Thiếu '{' để bắt đầu thân class");
         let methods = [];
         let static_fields = [];
         while (!this.check(TokenType.PUNCT_RBRACE) && !this.isAtEnd()) {
@@ -491,13 +521,13 @@ export class Parser {
                 if (this.check(TokenType.KEYWORD_LET) || this.check(TokenType.KEYWORD_FUNCTION) || this.check(TokenType.KEYWORD_CLASS)) {
                     static_fields.push(this.declaration());
                 } else {
-                    this.throwParseErr("Sau 'static' trong một class phải là các định nghĩa!", this.peek());
+                    this.throwParseErr("Thiếu định nghĩa sau từ khóa 'static'", this.peek());
                 }
             } else {
                 methods.push(this.functionDeclaration(this.advance()));
             }
         }
-        this.consume(TokenType.PUNCT_RBRACE, "Chịu rồi bạn, thiếu '}' sau class");
+        this.consume(TokenType.PUNCT_RBRACE, "Thiếu '}' khi kết thúc thân class");
         return ClassStatement(name, superclass, methods, static_fields);
     }
 
@@ -527,7 +557,7 @@ export class Parser {
             }
             let collection = this.expression();
             if (hasParen) {
-                this.consume(TokenType.PUNCT_RPAREN, "Cần ')' để kết thúc for-in!");
+                this.consume(TokenType.PUNCT_RPAREN, "Cần ')' để kết thúc for-in");
             } else {
                 this.match([TokenType.PUNCT_RPAREN]);
             }
@@ -542,13 +572,13 @@ export class Parser {
         if (!this.check(TokenType.PUNCT_SEMICOLON)) {
             condition = this.expression();
         }
-        this.consume(TokenType.PUNCT_SEMICOLON, "Cần ';' sau điều kiện!");
+        this.consume(TokenType.PUNCT_SEMICOLON, "Cần ';' sau điều kiện");
         let update = null;
         if (!this.check(TokenType.PUNCT_RPAREN)) {
             update = this.expression();
         }
         if (hasParen) {
-            this.consume(TokenType.PUNCT_RPAREN, "Cần ')' để kết thúc for clauses!");
+            this.consume(TokenType.PUNCT_RPAREN, "Cần ')' để kết thúc 'for'");
         } else {
             this.match([TokenType.PUNCT_RPAREN]);
         }
@@ -561,17 +591,17 @@ export class Parser {
         if (!this.check(TokenType.PUNCT_SEMICOLON)) {
             value = this.expression();
         }
-        this.consume(TokenType.PUNCT_SEMICOLON, "Cần một dấu chấm phẩy ';' ở đây nhá bạn!");
+        this.consumeSemicolon("Thiếu dấu phẩy ';'");
         return ReturnStatement(value);
     }
 
     fn breakStatement(token) {
-        this.consume(TokenType.PUNCT_SEMICOLON, "Cần một dấu chấm phẩy ';' ở đây nhá bạn!");
+        this.consumeSemicolon("Thiếu dấu phẩy ';'");
         return BreakStatement();
     }
 
     fn continueStatement(token) {
-        this.consume(TokenType.PUNCT_SEMICOLON, "Cần một dấu chấm phẩy ';' ở đây nhá bạn!");
+        this.consumeSemicolon("Thiếu dấu phẩy ';'");
         return ContinueStatement();
     }
 
@@ -583,7 +613,7 @@ export class Parser {
                 block.statements.push(decl);
             }
         }
-        this.consume(TokenType.PUNCT_RBRACE, "Expected '}");
+        this.consume(TokenType.PUNCT_RBRACE, "Cần '}' sau block");
         return block;
     }
 
@@ -592,16 +622,16 @@ export class Parser {
         if (!this.check(TokenType.PUNCT_SEMICOLON)) {
             args = this.expression();
         }
-        this.consume(TokenType.PUNCT_SEMICOLON, "Cần một dấu chấm phẩy ';' ở đây nhá bạn!");
+        this.consumeSemicolon("Thiếu dấu phẩy ';'");
         return ThrowStatement(args);
     }
 
     fn tryStatement(token) {
-        let tryBlock = this.blockStatement(this.consume(TokenType.PUNCT_LBRACE, "Try không nhận gì khác ngoài một block '{}' sau nó đâu! Nên là thêm dấu ngoặc kép '{' vào nhá bạn."));
-        this.consume(TokenType.KEYWORD_CATCH, "Có 'try' mà không có 'catch'?");
-        this.consume(TokenType.PUNCT_LPAREN, "Thiếu dấu ngoặc đơn trái '(' rồi");
-        let catchVar = Identifier(this.consume(TokenType.IDENTIFIER, "Bạn cần bắt thứ gì? Tên nó là gì?").lexeme);
-        this.consume(TokenType.PUNCT_RPAREN, "Thiếu dầu ngoặc đơn phải ')'.");
+        let tryBlock = this.blockStatement(this.consume(TokenType.PUNCT_LBRACE, "Thiếu '{' sau từ khóa 'try'"));
+        this.consume(TokenType.KEYWORD_CATCH, "Thiếu 'catch' sau block 'try'");
+        this.consume(TokenType.PUNCT_LPAREN, "Thiếu '(' sau 'catch'");
+        let catchVar = Identifier(this.consume(TokenType.IDENTIFIER, "Thiếu tên biến đại diện cho lỗi cần bắt").lexeme);
+        this.consume(TokenType.PUNCT_RPAREN, "Thiếu ')' sau tên biến");
         let catchBlock = this.declaration();
         return TryStatement(tryBlock, catchVar, catchBlock);
     }
@@ -614,7 +644,7 @@ export class Parser {
         if (this.match([TokenType.PUNCT_LBRACE])) {
             while (!this.check(TokenType.PUNCT_RBRACE) && !this.isAtEnd()) {
                 do {
-                    namedImports.push(Identifier(this.consume(TokenType.IDENTIFIER, "Cần tên định danh trong danh sách import.").lexeme));
+                    namedImports.push(Identifier(this.consume(TokenType.IDENTIFIER, "Tên định danh không xác định trong danh sách import").lexeme));
                 } while (this.match([TokenType.PUNCT_COMMA]));
             }
             this.consume(TokenType.PUNCT_RBRACE, "Thiếu ngoặc nhọn '}' để đóng danh sách import.");
@@ -629,7 +659,7 @@ export class Parser {
             path = this.expression();
             importAll = true;
         }
-        this.consume(TokenType.PUNCT_SEMICOLON, "Thiếu dấu ';' cuối câu lệnh import.");
+        this.consumeSemicolon("Thiếu dấu phẩy ';'");
         return ImportStatement(path, namedImports, namespaceImport, importAll);
     }
 
@@ -646,7 +676,7 @@ export class Parser {
                 } while (this.match([TokenType.PUNCT_COMMA]));
             }
             this.consume(TokenType.PUNCT_RBRACE, "Thiếu dấu ngoặc nhọn '}' sau danh sách export");
-            this.consume(TokenType.PUNCT_SEMICOLON, "Thiếu dấu chấm phẩy ';' sau câu lệnh.");
+            this.consumeSemicolon("Thiếu dấu phẩy ';'");
             return ExportStatement(null, specifiers);
         }
         this.throwParseErr("Đây không phải cú pháp 'export' hợp lệ...", this.peek());
@@ -654,13 +684,13 @@ export class Parser {
 
     fn expressionStatement(token) {
         let expr = this.expression();
-        this.consume(TokenType.PUNCT_SEMICOLON, "Cần một dấu chấm phẩy ';' ở đây nhá bạn!");
+        this.consumeSemicolon("Thiếu dấu phẩy ';'");
         return ExpressionStatement(expr);
     }
 
     fn logStatement(token) {
         let expr = this.expression();
-        this.consume(TokenType.PUNCT_SEMICOLON, "Cần một dấu chấm phẩy ';' ở đây nhá bạn!");
+        this.consumeSemicolon("Thiếu dấu phẩy ';'");
         return LogStatement(expr);
     }
 
@@ -692,7 +722,7 @@ export class Parser {
         let body = this.statement();
         this.consume(TokenType.KEYWORD_WHILE, "Thiếu từ khóa 'while' sau thân của vòng lặp 'do'.");
         let condition = this.expression();
-        this.consume(TokenType.PUNCT_SEMICOLON, "Thiếu dấu ';' sau câu lệnh do-while.");
+        this.consumeSemicolon("Thiếu dấu phẩy ';'");
         return DoWhileStatement(body, condition);
     }
 
@@ -706,7 +736,7 @@ export class Parser {
                     program.body.push(decl);
                 }
             } catch (e) {
-                print(e, "Hehe");
+                print(e);
                 System.exit(42);
                 // print(this.synchronize);
                 // this.synchronize();
